@@ -22,6 +22,7 @@
       <span id="personal-role">Sales Representative</span>
       <span id="personal-dept">Cross-functional</span>
     </div>
+    <button type="button" class="left-rail-signout" id="auth-signout-btn">Sign out</button>
   </div>
   <div class="left-rail-stats">
     <div class="left-rail-stat"><span>Open</span><strong id="personal-open-count">0</strong></div>
@@ -134,16 +135,49 @@
   </section>
   <section id="screen-analytics" class="screen"></section>
   <section id="screen-notifications" class="screen">
+    <div class="panel" id="access-admin-panel">
+      <div class="panel-header">
+        <h2>User Access</h2>
+        <p>Invite team members and assign their role.</p>
+      </div>
+      <form id="invite-user-form" class="form-grid">
+        <label>Work email<input id="invite-email" name="inviteEmail" type="email" required placeholder="name@company.com"/></label>
+        <label>Role<select id="invite-role" name="inviteRole"><option value="sales_rep">Sales Representative</option><option value="supervisor">Supervisor</option></select></label>
+        <label>Full name<input id="invite-full-name" name="inviteFullName" placeholder="Optional"/></label>
+        <label>Department<select id="invite-department" name="inviteDepartment"><option value="">Cross-functional</option><option value="Jumbo &amp; Discounters">Jumbo &amp; Discounters</option><option value="Field Sales North">Field Sales North</option><option value="Field Sales South">Field Sales South</option><option value="Key Accounts Supermarkets">Key Accounts Supermarkets</option><option value="Convenience &amp; Petrol">Convenience &amp; Petrol</option><option value="E-commerce Sales">E-commerce Sales</option><option value="Wholesalers">Wholesalers</option><option value="Sales Operations">Sales Operations</option><option value="Trade Marketing">Trade Marketing</option><option value="Revenue Growth Management">Revenue Growth Management</option><option value="Legal">Legal</option><option value="Finance">Finance</option><option value="Operations">Operations</option><option value="IT">IT</option><option value="Supply Chain">Supply Chain</option><option value="HR">HR</option></select></label>
+        <div class="form-actions full-width">
+          <button type="submit" class="btn-primary">Send invite</button>
+        </div>
+      </form>
+      <p id="invite-status" class="invite-status"></p>
+    </div>
     <div class="panel"><div class="panel-header"><h2>Notification Center</h2><p>Department notifications and status updates.</p></div><div id="notifications-list" class="notifications-list"></div></div>
     <div class="panel"><div class="panel-header"><h2>Notification Preferences</h2></div><div class="notification-prefs"><label class="pref-row"><input type="checkbox" id="pref-email-notify" checked/><span>Email notifications for new assignments</span></label><label class="pref-row"><input type="checkbox" id="pref-escalation-notify" checked/><span>Escalation alerts</span></label><label class="pref-row"><input type="checkbox" id="pref-overdue-notify" checked/><span>Overdue challenge reminders</span></label><label class="pref-row"><input type="checkbox" id="pref-resolution-notify" checked/><span>Resolution confirmations</span></label></div></div>
   </section>
 </main>
+</div>
+<div class="auth-overlay" id="auth-overlay" aria-hidden="true">
+  <div class="auth-card">
+    <h2>Sign in to RED in-SYNCC</h2>
+    <p class="auth-sub">Use your invited work email to access the dashboard.</p>
+    <form id="auth-login-form" class="auth-form">
+      <label>Email<input id="auth-email" type="email" required placeholder="name@company.com"/></label>
+      <label>Password<input id="auth-password" type="password" placeholder="Your password"/></label>
+      <div class="auth-actions">
+        <button type="submit" class="btn-primary">Sign in</button>
+        <button type="button" class="mini-btn" id="auth-magic-link-btn">Send magic link</button>
+      </div>
+    </form>
+    <p id="auth-status" class="auth-status"></p>
+  </div>
 </div>
 <aside class="detail-drawer" id="detail-drawer" aria-hidden="true"><button class="drawer-close" id="close-drawer">Close &#x2715;</button><div id="detail-content"></div></aside>
 <div class="modal" id="escalate-modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Escalate Challenge</h3><button class="drawer-close" id="close-escalate-modal">&#x2715;</button></div><p class="modal-sub">Move this challenge to a higher meeting level.</p><form id="escalate-form" class="form-grid modal-form"><input type="hidden" id="escalate-item-id" name="itemId"/><label>Target meeting<select id="escalate-target-meeting" name="targetMeeting"><option value="team_weekly">Senior Manager (09:45)</option><option value="regional_red">Associate Director</option><option value="national_red">Director (11:00)</option><option value="leadership_sync">Leadership Team (15:00)</option></select></label><label>Escalation level<select id="escalate-level" name="escalationLevel"><option value="team_lead">Team Lead</option><option value="senior_leadership">Senior Leadership</option></select></label><label>Target meeting date<input id="escalate-meeting-date" name="nextMeetingDate" type="date"/></label><label>Escalated to (owner)<input id="escalate-owner" name="escalatedTo" placeholder="Person or department"/></label><label class="full-width">Escalation reason<textarea id="escalate-reason" name="escalationReason" rows="2" placeholder="Why? (min 12 chars)"></textarea></label><div class="form-actions full-width modal-actions"><button type="button" class="mini-btn" id="cancel-escalate">Cancel</button><button type="submit" class="btn-primary">Escalate</button></div></form></div></div>
 <div class="modal" id="meeting-rec-modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Meeting Recommendation</h3><button class="drawer-close" id="rec-close-btn">&#x2715;</button></div><p class="modal-sub">A similar resolved case was found. You can reuse the solution.</p><input type="hidden" id="rec-item-id"/><input type="hidden" id="rec-matched-id"/><div id="rec-body"></div><div class="form-actions modal-actions" style="margin-top:12px"><button type="button" class="mini-btn" id="rec-skip-btn">Skip -- Proceed to meeting</button><button type="button" class="btn-primary" id="rec-apply-btn">Apply solution and skip meeting</button></div></div></div>
 <div class="modal" id="recurring-alert-modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Recurring Challenge Detected</h3><button class="drawer-close" id="recurring-close-btn">&#x2715;</button></div><p class="modal-sub">This challenge pattern has appeared multiple times. Consider escalating.</p><input type="hidden" id="recurring-item-id"/><div id="recurring-body"></div><div class="form-actions modal-actions" style="margin-top:12px"><button type="button" class="mini-btn" id="recurring-close-btn-2">Keep at current level</button><button type="button" class="btn-primary" id="recurring-escalate-btn">Escalate to higher meeting</button></div></div></div>
 <div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

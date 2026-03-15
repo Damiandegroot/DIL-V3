@@ -72,6 +72,21 @@ let activeDeptFilter = "all";
 let activeMeetingLevelFilter = "all";
 let activeRoleView = "sales_rep";
 
+const AUTH_CONFIG = {
+  supabaseUrl: String(window.RED_SYNC_CONFIG?.supabaseUrl || "").trim(),
+  supabaseAnonKey: String(window.RED_SYNC_CONFIG?.supabaseAnonKey || "").trim(),
+  inviteEndpoint: "/api/invite-user",
+};
+
+let authClient = null;
+let authUser = null;
+let authIdentity = {
+  name: "Name Employer",
+  email: "",
+  role: "sales_rep",
+  department: "Cross-functional",
+};
+
 function normalizeRoleView(value) {
   return value === "supervisor" ? "supervisor" : "sales_rep";
 }
@@ -84,6 +99,173 @@ function getAllowedScreensForRole() {
   return isSupervisorView()
     ? ["dashboard", "meeting", "create", "archive", "analytics", "notifications"]
     : ["dashboard", "create", "archive"];
+}
+
+function setAuthOverlayVisible(visible) {
+  const overlay = document.querySelector("#auth-overlay");
+  if (!overlay) return;
+  overlay.classList.toggle("is-visible", Boolean(visible));
+  overlay.setAttribute("aria-hidden", visible ? "false" : "true");
+}
+
+function setAuthStatus(message = "", tone = "") {
+  const el = document.querySelector("#auth-status");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove("is-error", "is-success");
+  if (tone === "error") el.classList.add("is-error");
+  if (tone === "success") el.classList.add("is-success");
+}
+
+function setInviteStatus(message = "", tone = "") {
+  const el = document.querySelector("#invite-status");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove("is-error", "is-success");
+  if (tone === "error") el.classList.add("is-error");
+  if (tone === "success") el.classList.add("is-success");
+}
+
+function normalizeAuthRole(roleValue) {
+  return normalizeRoleView(String(roleValue || "").toLowerCase());
+}
+
+function userIdentityFromAuthUser(user) {
+  const email = String(user?.email || "").trim();
+  const nameFromMeta = String(user?.user_metadata?.full_name || user?.user_metadata?.name || "").trim();
+  const fallbackName = email ? email.split("@")[0].replace(/[._-]+/g, " ") : "Name Employer";
+  const role = normalizeAuthRole(user?.app_metadata?.role || user?.user_metadata?.role);
+  const department = String(user?.user_metadata?.department || "Cross-functional").trim() || "Cross-functional";
+  return {
+    name: nameFromMeta || fallbackName,
+    email,
+    role,
+    department,
+  };
+}
+
+function updateAuthBoundFields() {
+  const userNameInput = document.querySelector('[name="createdBy"]');
+  if (userNameInput) {
+    userNameInput.value = authIdentity.name || "Name Employer";
+    userNameInput.readOnly = isAuthenticated();
+  }
+
+  const signoutBtn = document.querySelector("#auth-signout-btn");
+  if (signoutBtn) {
+    signoutBtn.classList.toggle("is-role-hidden", !isAuthenticated());
+  }
+}
+
+function updateAccessPanelVisibility() {
+  const accessPanel = document.querySelector("#access-admin-panel");
+  if (!accessPanel) return;
+  accessPanel.classList.toggle("is-role-hidden", !isSupervisorView());
+}
+
+async function applyAuthSessionUser(user) {
+  authUser = user || null;
+  if (authUser) {
+    authIdentity = userIdentityFromAuthUser(authUser);
+    activeRoleView = authIdentity.role;
+  } else {
+    authIdentity = {
+      name: "Name Employer",
+      email: "",
+      role: "sales_rep",
+      department: "Cross-functional",
+    };
+    activeRoleView = "sales_rep";
+  }
+
+  const roleSelector = document.querySelector("#role-selector");
+  if (roleSelector) {
+    roleSelector.value = activeRoleView;
+    roleSelector.disabled = isAuthConfigured();
+  }
+
+  if (authIdentity.department && authIdentity.department !== "Cross-functional") {
+    activeDeptFilter = authIdentity.department;
+    const deptFilter = document.querySelector("#dept-filter");
+    if (deptFilter && [...deptFilter.options].some((o) => o.value === authIdentity.department)) {
+      deptFilter.value = authIdentity.department;
+    }
+    const archiveDept = document.querySelector("#archive-dept-filter");
+    if (archiveDept && [...archiveDept.options].some((o) => o.value === authIdentity.department)) {
+      archiveDept.value = authIdentity.department;
+    }
+  }
+
+  updateAuthBoundFields();
+}
+
+async function initAuthentication() {
+  if (!isAuthConfigured()) {
+    setAuthOverlayVisible(false);
+    setAuthStatus("");
+    updateAuthBoundFields();
+    return;
+  }
+
+  authClient = window.supabase.createClient(AUTH_CONFIG.supabaseUrl, AUTH_CONFIG.supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
+
+  authClient.auth.onAuthStateChange((_event, session) => {
+    void applyAuthSessionUser(session?.user || null).then(() => {
+      setAuthOverlayVisible(!session?.user);
+      if (!session?.user) setAuthStatus("Sign in with your invited work email.");
+      refreshAll();
+    });
+  });
+
+  const { data, error } = await authClient.auth.getSession();
+  if (error) {
+    setAuthStatus(error.message || "Unable to load session.", "error");
+  }
+
+  await applyAuthSessionUser(data?.session?.user || null);
+  setAuthOverlayVisible(!data?.session?.user);
+  if (!data?.session?.user) setAuthStatus("Sign in with your invited work email.");
+}
+
+async function signInWithPassword(email, password) {
+  if (!authClient) throw new Error("Authentication is not configured.");
+  const { error } = await authClient.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message || "Sign-in failed.");
+}
+
+async function sendMagicLink(email) {
+  if (!authClient) throw new Error("Authentication is not configured.");
+  const { error } = await authClient.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  if (error) throw new Error(error.message || "Magic link request failed.");
+}
+
+async function signOutAuthenticatedUser() {
+  if (!authClient) return;
+  const { error } = await authClient.auth.signOut();
+  if (error) throw new Error(error.message || "Sign-out failed.");
+}
+
+async function getAccessToken() {
+  if (!authClient) return "";
+  const { data } = await authClient.auth.getSession();
+  return data?.session?.access_token || "";
+}
+
+function isAuthConfigured() {
+  return Boolean(AUTH_CONFIG.supabaseUrl && AUTH_CONFIG.supabaseAnonKey && window.supabase?.createClient);
+}
+
+function isAuthenticated() {
+  return Boolean(authUser?.id);
 }
 
 // Tracks meetings avoided by knowledge reuse (session counter, persisted)
@@ -4005,7 +4187,9 @@ function renderPersonalPanel() {
   const resolvedItems = relevant.filter((item) => item.status === "resolved" || item.status === "closed");
   const likesGiven = items.filter((item) => (item.type === "celebration" || item.type === "contribution") && uniqueList(item.likedBy || []).includes(user)).length;
   const deptCandidates = uniqueList(relevant.map((item) => item.department));
-  const deptLabel = activeDeptFilter !== "all" ? activeDeptFilter : (deptCandidates[0] || "Cross-functional");
+  const deptLabel = authIdentity.department && authIdentity.department !== "Cross-functional"
+    ? authIdentity.department
+    : (activeDeptFilter !== "all" ? activeDeptFilter : (deptCandidates[0] || "Cross-functional"));
   const initials = user
     .split(/\s+/)
     .filter(Boolean)
@@ -4232,7 +4416,11 @@ function favoriteFocusItemHTML(item) {
   </div>`;
 }
 
-function _currentUser() { const el = document.querySelector('[name="createdBy"]'); return (el?.value || "Name Employer").trim(); }
+function _currentUser() {
+  if (isAuthenticated() && authIdentity.name) return authIdentity.name;
+  const el = document.querySelector('[name="createdBy"]');
+  return (el?.value || authIdentity.name || "Name Employer").trim();
+}
 
 function renderMyFocus() {
   const el = document.querySelector("#my-focus-items"); if (!el) return;
@@ -4838,7 +5026,10 @@ function applyRolePermissions() {
   const allowed = new Set(getAllowedScreensForRole());
   const supervisor = isSupervisorView();
   const roleSelector = document.querySelector("#role-selector");
-  if (roleSelector && roleSelector.value !== activeRoleView) roleSelector.value = activeRoleView;
+  if (roleSelector) {
+    if (roleSelector.value !== activeRoleView) roleSelector.value = activeRoleView;
+    roleSelector.disabled = isAuthConfigured();
+  }
 
   document.querySelectorAll(".tab[data-screen]").forEach((button) => {
     const screen = button.dataset.screen;
@@ -4862,6 +5053,8 @@ function applyRolePermissions() {
       ? "Supervisor mode: full access and editing enabled."
       : "Sales representative mode: dashboard + create + archive (read-only).";
   }
+
+  updateAccessPanelVisibility();
 
   const activeScreen = document.querySelector(".screen.is-visible")?.id?.replace("screen-", "");
   if (activeScreen && !allowed.has(activeScreen)) {
@@ -5036,7 +5229,8 @@ function handleCreateItem(event) {
   refreshAll();
   showToast(`Created ${item.id}`);
   form.reset();
-  form.querySelector('[name="createdBy"]').value = "Name Employer";
+  const createdByInput = form.querySelector('[name="createdBy"]');
+  if (createdByInput) createdByInput.value = _currentUser();
   updateTypeFields();
 
   if (type === "challenge") {
@@ -6156,9 +6350,13 @@ function registerEvents() {
   // V2: Role selector (Tutor Feedback §1)
   const roleSelector = document.querySelector("#role-selector");
   if (roleSelector) {
-    activeRoleView = normalizeRoleView(roleSelector.value);
+    if (!isAuthConfigured()) activeRoleView = normalizeRoleView(roleSelector.value);
     roleSelector.value = activeRoleView;
     roleSelector.addEventListener("change", () => {
+      if (isAuthConfigured()) {
+        roleSelector.value = activeRoleView;
+        return;
+      }
       activeRoleView = normalizeRoleView(roleSelector.value);
       roleSelector.value = activeRoleView;
       refreshAll();
@@ -6168,8 +6366,109 @@ function registerEvents() {
   const userNameInput = document.querySelector('[name="createdBy"]');
   if (userNameInput) {
     userNameInput.addEventListener("input", () => {
+      if (isAuthenticated()) {
+        userNameInput.value = _currentUser();
+        return;
+      }
       renderMyFocus();
       renderPersonalPanel();
+    });
+  }
+
+  const authForm = document.querySelector("#auth-login-form");
+  if (authForm) {
+    authForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const email = String(document.querySelector("#auth-email")?.value || "").trim();
+      const password = String(document.querySelector("#auth-password")?.value || "").trim();
+      if (!email) {
+        setAuthStatus("Enter your work email first.", "error");
+        return;
+      }
+      if (!password) {
+        setAuthStatus("Enter your password or use magic link.", "error");
+        return;
+      }
+      try {
+        setAuthStatus("Signing in...");
+        await signInWithPassword(email, password);
+        setAuthStatus("Signed in.", "success");
+      } catch (error) {
+        setAuthStatus(String(error.message || error), "error");
+      }
+    });
+  }
+
+  const magicBtn = document.querySelector("#auth-magic-link-btn");
+  if (magicBtn) {
+    magicBtn.addEventListener("click", async () => {
+      const email = String(document.querySelector("#auth-email")?.value || "").trim();
+      if (!email) {
+        setAuthStatus("Enter your work email first.", "error");
+        return;
+      }
+      try {
+        setAuthStatus("Sending magic link...");
+        await sendMagicLink(email);
+        setAuthStatus("Magic link sent. Check your email.", "success");
+      } catch (error) {
+        setAuthStatus(String(error.message || error), "error");
+      }
+    });
+  }
+
+  const signoutBtn = document.querySelector("#auth-signout-btn");
+  if (signoutBtn) {
+    signoutBtn.addEventListener("click", async () => {
+      try {
+        await signOutAuthenticatedUser();
+        setAuthStatus("Signed out.");
+      } catch (error) {
+        showToast(String(error.message || error));
+      }
+    });
+  }
+
+  const inviteForm = document.querySelector("#invite-user-form");
+  if (inviteForm) {
+    inviteForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!requireSupervisorAccess("Invite users")) return;
+
+      const email = String(document.querySelector("#invite-email")?.value || "").trim();
+      const role = normalizeRoleView(document.querySelector("#invite-role")?.value || "sales_rep");
+      const fullName = String(document.querySelector("#invite-full-name")?.value || "").trim();
+      const department = String(document.querySelector("#invite-department")?.value || "").trim();
+
+      if (!email) {
+        setInviteStatus("Enter an email address.", "error");
+        return;
+      }
+
+      try {
+        const token = await getAccessToken();
+        if (!token) throw new Error("Session expired. Please sign in again.");
+
+        setInviteStatus("Sending invite...");
+        const response = await fetch(AUTH_CONFIG.inviteEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ email, role, fullName, department }),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.message || payload?.detail || "Failed to send invite.");
+        }
+
+        setInviteStatus(`Invite sent to ${email}.`, "success");
+        inviteForm.reset();
+      } catch (error) {
+        setInviteStatus(String(error.message || error), "error");
+      }
     });
   }
 
@@ -6186,7 +6485,7 @@ function registerEvents() {
   }
 }
 
-function init() {
+async function init() {
   meetingWeekView = "current";
   activeMeetingWeek = upcomingMeetingMondayISO();
   normalizeOpenItemsForCurrentWeek();
@@ -6195,7 +6494,8 @@ function init() {
   updateTypeFields();
   seedAssistantThread();
   switchTab("dashboard");
+  await initAuthentication();
   refreshAll();
 }
 
-init();
+void init();
