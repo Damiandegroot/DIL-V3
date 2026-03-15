@@ -3300,6 +3300,19 @@ function inferChallengeIntent(query) {
   );
 }
 
+function isLikelyDutchText(text) {
+  return /\b(hoi|hallo|goedemorgen|goedemiddag|goedenavond|hoe|gaat|dank|bedankt|kun|jij|ik|wat|met|uitdaging)\b/i.test(
+    text || ""
+  );
+}
+
+function buildAssistantOfflineChatFallback(query) {
+  const isDutch = isLikelyDutchText(query);
+  return isDutch
+    ? "Hoi! Ik help je graag. Beschrijf je challenge kort (wat, waar, impact), dan zoek ik vergelijkbare cases met praktische vervolgstappen."
+    : "Hey! Happy to help. Share your challenge in 1-2 lines (what, where, impact), and I will find relevant historical cases with practical next steps.";
+}
+
 function findSimilarCases(query, limit = 3, candidateItems = items) {
   const profile = buildAssistantQueryProfile(query);
   if (!profile.tokens.length) return [];
@@ -3596,9 +3609,10 @@ function buildAssistantCaseLinks(matches, limit = 3) {
   }));
 }
 
-function isActionableAssistantAnswer(text) {
+function isActionableAssistantAnswer(text, query) {
   const value = String(text || "");
   if (!value) return false;
+  if (!inferChallengeIntent(query || "")) return value.length > 0;
   const lowered = value.toLowerCase();
   const hasActionsSection =
     lowered.includes("recommended actions") || lowered.includes("aanbevolen acties");
@@ -3612,44 +3626,60 @@ function isActionableAssistantAnswer(text) {
 }
 
 async function askLLMForAssistantAnswer(query, matches) {
-  if (!ASSISTANT_LLM_CONFIG.enabled || !matches.length) return null;
+  if (!ASSISTANT_LLM_CONFIG.enabled) return null;
 
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), ASSISTANT_LLM_CONFIG.timeoutMs);
   const roleLabel = assistantRoleLabel();
+  const challengeIntent = inferChallengeIntent(query || "");
 
   const systemPrompt = [
     "You are the RED in-SYNCC Smart Assistant.",
-    "You must only use the provided archive cases; do not invent facts.",
+    "If archive cases are provided, only use those for historical facts; do not invent facts.",
     "Answer in the same language as the user question.",
     "Be practical and concise. Avoid generic theory, analogies, and external industry examples.",
     `The user role is: ${roleLabel}. Tailor recommendations to this role.`,
-    "Prioritize resolved/closed cases with documented solutions.",
-    "If no documented solution exists, state that clearly.",
     "Do NOT include case IDs, source citations, references, confidence percentages, or retrieval details.",
-    "Output with these headings in this order:",
-    "Quick assessment:",
-    "Relevant historical cases:",
-    "What worked before:",
-    `Recommended actions for ${roleLabel}:`,
-    "Escalate when:",
-    "Use max 3 historical cases and max 3 action steps.",
-    "Keep the total answer under 180 words.",
-    "Action steps must be specific and executable in a weekly sales workflow.",
-    "Use numbered steps for actions:",
-    "1. ...",
-    "2. ...",
-    "3. ...",
+    challengeIntent
+      ? [
+          "This is a challenge-related request.",
+          "Prioritize resolved/closed cases with documented solutions.",
+          "If no documented solution exists, state that clearly.",
+          "Output with these headings in this order:",
+          "Quick assessment:",
+          "Relevant historical cases:",
+          "What worked before:",
+          `Recommended actions for ${roleLabel}:`,
+          "Escalate when:",
+          "Use max 3 historical cases and max 3 action steps.",
+          "Keep the total answer under 180 words.",
+          "Action steps must be specific and executable in a weekly sales workflow.",
+          "Use numbered steps for actions:",
+          "1. ...",
+          "2. ...",
+          "3. ...",
+        ].join("\n")
+      : [
+          "This is casual conversation or a general question.",
+          "Reply naturally like a human teammate in 1-3 short sentences.",
+          "Do not force structured headings for casual chat.",
+          "Offer to help with a concrete challenge when relevant.",
+        ].join("\n"),
   ].join("\n");
+
+  const casesContext = matches.length
+    ? buildAssistantCaseContext(matches)
+    : "No candidate archive cases found for this question.";
 
   const userPrompt = [
     `User question: ${query}`,
     "",
     "Candidate archive cases:",
-    buildAssistantCaseContext(matches),
+    casesContext,
     "",
-    "Give a concise practical answer for this specific challenge.",
-    "Prefer resolved/closed cases with clear documented solutions.",
+    challengeIntent
+      ? "Give a concise practical answer for this specific challenge. Prefer resolved/closed cases with clear documented solutions."
+      : "Reply naturally and helpfully to the user message.",
     "No IDs or source citations.",
     "Do not include generic best-practice text that is not directly grounded in the provided cases.",
   ].join("\n");
@@ -3710,23 +3740,29 @@ async function askLLMForAssistantAnswer(query, matches) {
 }
 
 async function buildAssistantAdvice(query) {
+  const challengeIntent = inferChallengeIntent(query || "");
   const archivePool = getArchiveFilteredItems({ useQuery: false });
   const matches = findSimilarCases(query, ASSISTANT_LLM_CONFIG.contextCaseLimit, archivePool);
   const fallback = buildAssistantFallbackAdvice(matches.slice(0, ASSISTANT_LLM_CONFIG.uiMatchLimit));
   const caseLinks = buildAssistantCaseLinks(matches, 3);
 
-  if (!matches.length) return fallback;
-
   const llmAnswer = await askLLMForAssistantAnswer(query, matches);
-  const useLlmAnswer = isActionableAssistantAnswer(llmAnswer);
+  const useLlmAnswer = isActionableAssistantAnswer(llmAnswer, query);
   if (!llmAnswer && !assistantLlmUnavailableNotified) {
     assistantLlmUnavailableNotified = true;
     showToast("LLM API not available. Using built-in assistant logic.");
   }
 
+  if (useLlmAnswer) {
+    return {
+      answer: sanitizeAssistantAnswer(llmAnswer),
+      matches: challengeIntent ? caseLinks : [],
+    };
+  }
+
   return {
-    answer: sanitizeAssistantAnswer(useLlmAnswer ? llmAnswer : fallback.answer),
-    matches: caseLinks,
+    answer: challengeIntent ? sanitizeAssistantAnswer(fallback.answer) : buildAssistantOfflineChatFallback(query),
+    matches: challengeIntent ? caseLinks : [],
   };
 }
 
@@ -3778,7 +3814,7 @@ function seedAssistantThread() {
   if (assistantThread.length) return;
   assistantThread.push({
     role: "assistant",
-    text: "Ask me about a challenge. I will check similar archive cases and suggest practical next steps.",
+    text: "Hey! I am your smart archive assistant. Tell me your challenge and I will find similar cases and practical next steps.",
     matches: [],
   });
 }
