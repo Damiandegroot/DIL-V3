@@ -2759,6 +2759,19 @@ function formatMessageText(text) {
   return escapeHtml(text).replace(/\n/g, "<br>");
 }
 
+function formatAssistantMessageText(text) {
+  let safe = escapeHtml(text || "");
+  safe = safe.replace(
+    /\*\*(.+?)\*\*/g,
+    '<strong class="assistant-inline-strong">$1</strong>'
+  );
+  safe = safe.replace(
+    /^(Quick assessment:|Relevant historical cases:|What worked before:|Recommended actions for[^:\n]*:|Escalate when:)/gim,
+    '<strong class="assistant-section-title">$1</strong>'
+  );
+  return safe.replace(/\n/g, "<br>");
+}
+
 function normalizeSearchText(text) {
   return String(text || "")
     .toLowerCase()
@@ -3421,41 +3434,83 @@ function handleSimilarityLevelClick(levelKey, sourceItemId) {
 
 // ── End Similarity Explorer ──────────────────────────────────────────────────
 
+function assistantRoleLabel() {
+  return isSupervisorView() ? "supervisor" : "sales representative";
+}
+
+function isResolvedLikeStatus(status) {
+  return status === "resolved" || status === "closed";
+}
+
 function buildAssistantFallbackAdvice(matches) {
+  const roleLabel = assistantRoleLabel();
+
   if (!matches.length) {
     return {
-      answer:
-        "I do not see a strong historical match yet. If this is urgent, log it as a new challenge with clear context, assign one owner, set a due date, and decide escalation level for the next meeting.",
+      answer: [
+        "Quick assessment:",
+        "No close resolved match found in the selected archive scope.",
+        "",
+        "Relevant historical cases:",
+        "1. No high-confidence case match yet.",
+        "",
+        "What worked before:",
+        "- No documented fix available for this query in the current selection.",
+        "",
+        `Recommended actions for ${roleLabel}:`,
+        "1. Log the challenge with concrete facts (what, where, when, impact).",
+        "2. Assign one owner and set a due date before the next meeting.",
+        "3. Add an update after first action so similar cases become reusable.",
+        "",
+        "Escalate when:",
+        "- Customer impact is increasing or SLA risk is visible.",
+        "- No clear root cause is found within one working day.",
+      ].join("\n"),
       matches: [],
     };
   }
 
+  const topCases = matches.slice(0, 3);
+  const solvedWithSolution = topCases.filter(
+    (item) => isResolvedLikeStatus(item.status) && (item.solution || "").trim().length > 0
+  );
+
   const lines = [];
-  lines.push(`I found ${matches.length} relevant historical case${matches.length > 1 ? "s" : ""}.`);
-  lines.push("Most relevant parallels:");
-  matches.forEach((item, index) => {
-    lines.push(`${index + 1}. ${truncate(item.title, 95)} (${toLabel(item.type).toLowerCase()}, ${toLabel(item.status).toLowerCase()}).`);
+  lines.push("Quick assessment:");
+  lines.push(
+    solvedWithSolution.length
+      ? "There is a relevant historical solution you can reuse with minor adaptation."
+      : "There are similar cases, but no fully documented resolved solution in the closest matches."
+  );
+  lines.push("");
+  lines.push("Relevant historical cases:");
+  topCases.forEach((item, index) => {
+    lines.push(`${index + 1}. ${truncate(item.title, 98)} (${toLabel(item.type)}, ${toLabel(item.status)}).`);
   });
-
-  const resolvedCases = matches.filter((item) => ["resolved", "closed"].includes(item.status));
-  const solutionCases = resolvedCases.filter((item) => item.solution && item.solution.trim().length > 0);
-  const escalatedCases = matches.filter((item) => item.status === "escalated");
-
-  if (solutionCases.length) {
-    lines.push("What worked in similar resolved situations:");
-    solutionCases.slice(0, 2).forEach((item) => {
-      lines.push(`- ${truncate(item.solution, 180)}`);
+  lines.push("");
+  lines.push("What worked before:");
+  if (solvedWithSolution.length) {
+    solvedWithSolution.slice(0, 2).forEach((item) => {
+      lines.push(`- ${truncate(item.solution, 170)}`);
     });
-    lines.push("Recommended approach: reuse this pattern, assign one owner immediately, and lock a clear deadline.");
-  } else if (resolvedCases.length) {
-    lines.push("Recommended approach: start from the resolved pattern and adapt ownership and due date to your team.");
+  } else {
+    lines.push("- No documented fix yet in the top matched cases.");
   }
-
-  if (escalatedCases.length) {
-    lines.push("Pattern signal: escalation was often needed before resolution, so involve decision-makers early.");
+  lines.push("");
+  lines.push(`Recommended actions for ${roleLabel}:`);
+  if (isSupervisorView()) {
+    lines.push("1. Reuse the closest proven action and assign one accountable owner now.");
+    lines.push("2. Confirm cross-functional dependencies and set an update checkpoint within 24 hours.");
+    lines.push("3. Decide upfront whether this stays local or needs escalation in the next meeting.");
+  } else {
+    lines.push("1. Apply the closest proven action in your store/account context.");
+    lines.push("2. Capture result evidence (impact, blockers, timing) and post one clear update.");
+    lines.push("3. Escalate early if impact grows or ownership is unclear.");
   }
-
-  lines.push("Next steps: make context specific, set one owner, confirm due date, and decide escalate vs resolve for the next meeting.");
+  lines.push("");
+  lines.push("Escalate when:");
+  lines.push("- Impact is high and the first corrective step does not improve results.");
+  lines.push("- Another department is needed and no owner confirms support.");
 
   return {
     answer: lines.join("\n"),
@@ -3507,8 +3562,53 @@ function sanitizeAssistantAnswer(rawText) {
     .replace(/\bHJD\d{3,}\b/gi, "a similar historical case")
     .replace(/\bsource(?:s)?\s*:\s*[^\n]+/gi, "")
     .replace(/\breference(?:s)?\s*:\s*[^\n]+/gi, "")
+    .replace(/\b(in many|across|in various)\s+industr(?:y|ies)\b/gi, "")
+    .replace(/\bakin to\b/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function buildAssistantCaseLinks(matches, limit = 3) {
+  if (!Array.isArray(matches) || !matches.length) return [];
+
+  const ranked = [...matches].sort((a, b) => {
+    const scoreA =
+      (a.similarity || 0) +
+      (isResolvedLikeStatus(a.status) ? 0.12 : 0) +
+      ((a.solution || "").trim().length > 0 ? 0.08 : 0);
+    const scoreB =
+      (b.similarity || 0) +
+      (isResolvedLikeStatus(b.status) ? 0.12 : 0) +
+      ((b.solution || "").trim().length > 0 ? 0.08 : 0);
+    return scoreB - scoreA;
+  });
+
+  return ranked.slice(0, limit).map((item) => ({
+    id: item.id,
+    title: truncate(item.title || "Untitled case", 88),
+    issue: truncate(item.description || "", 90),
+    resolution:
+      (item.solution || "").trim().length > 0
+        ? truncate(item.solution, 105)
+        : "No documented solution yet.",
+    status: item.status,
+    type: item.type,
+  }));
+}
+
+function isActionableAssistantAnswer(text) {
+  const value = String(text || "");
+  if (!value) return false;
+  const lowered = value.toLowerCase();
+  const hasActionsSection =
+    lowered.includes("recommended actions") || lowered.includes("aanbevolen acties");
+  const hasParallelsSection =
+    lowered.includes("historical") || lowered.includes("historische") || lowered.includes("relevant");
+  const hasNumberedSteps = /\n1\.\s.+/m.test(value) && /\n2\.\s.+/m.test(value);
+  const genericNoise = /libraries organize|in various industries|across industries|general best practice/i.test(
+    value
+  );
+  return hasActionsSection && hasParallelsSection && hasNumberedSteps && !genericNoise;
 }
 
 async function askLLMForAssistantAnswer(query, matches) {
@@ -3516,20 +3616,27 @@ async function askLLMForAssistantAnswer(query, matches) {
 
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), ASSISTANT_LLM_CONFIG.timeoutMs);
+  const roleLabel = assistantRoleLabel();
 
   const systemPrompt = [
     "You are the RED in-SYNCC Smart Assistant.",
     "You must only use the provided archive cases; do not invent facts.",
     "Answer in the same language as the user question.",
-    "Write naturally, like a practical human advisor.",
-    "Do NOT include case IDs, source citations, references, confidence percentages, or technical retrieval details.",
-    "You may mention relevant historical parallels in plain language (no identifiers).",
-    "Return this structure:",
-    "Summary:",
-    "Historical parallels:",
-    "- ...",
-    "- ...",
-    "Recommended next steps:",
+    "Be practical and concise. Avoid generic theory, analogies, and external industry examples.",
+    `The user role is: ${roleLabel}. Tailor recommendations to this role.`,
+    "Prioritize resolved/closed cases with documented solutions.",
+    "If no documented solution exists, state that clearly.",
+    "Do NOT include case IDs, source citations, references, confidence percentages, or retrieval details.",
+    "Output with these headings in this order:",
+    "Quick assessment:",
+    "Relevant historical cases:",
+    "What worked before:",
+    `Recommended actions for ${roleLabel}:`,
+    "Escalate when:",
+    "Use max 3 historical cases and max 3 action steps.",
+    "Keep the total answer under 180 words.",
+    "Action steps must be specific and executable in a weekly sales workflow.",
+    "Use numbered steps for actions:",
     "1. ...",
     "2. ...",
     "3. ...",
@@ -3541,7 +3648,10 @@ async function askLLMForAssistantAnswer(query, matches) {
     "Candidate archive cases:",
     buildAssistantCaseContext(matches),
     "",
-    "Give a concise practical answer. Prefer resolved cases when possible. No IDs or source citations.",
+    "Give a concise practical answer for this specific challenge.",
+    "Prefer resolved/closed cases with clear documented solutions.",
+    "No IDs or source citations.",
+    "Do not include generic best-practice text that is not directly grounded in the provided cases.",
   ].join("\n");
 
   try {
@@ -3603,18 +3713,20 @@ async function buildAssistantAdvice(query) {
   const archivePool = getArchiveFilteredItems({ useQuery: false });
   const matches = findSimilarCases(query, ASSISTANT_LLM_CONFIG.contextCaseLimit, archivePool);
   const fallback = buildAssistantFallbackAdvice(matches.slice(0, ASSISTANT_LLM_CONFIG.uiMatchLimit));
+  const caseLinks = buildAssistantCaseLinks(matches, 3);
 
   if (!matches.length) return fallback;
 
   const llmAnswer = await askLLMForAssistantAnswer(query, matches);
+  const useLlmAnswer = isActionableAssistantAnswer(llmAnswer);
   if (!llmAnswer && !assistantLlmUnavailableNotified) {
     assistantLlmUnavailableNotified = true;
     showToast("LLM API not available. Using built-in assistant logic.");
   }
 
   return {
-    answer: sanitizeAssistantAnswer(llmAnswer || fallback.answer),
-    matches: [],
+    answer: sanitizeAssistantAnswer(useLlmAnswer ? llmAnswer : fallback.answer),
+    matches: caseLinks,
   };
 }
 
@@ -3640,17 +3752,19 @@ function renderAssistantMessages() {
       const matchesMarkup = (message.matches || [])
         .map(
           (item) => `
-          <button type="button" class="assistant-case-btn" data-item-id="${item.id}">
-            ${escapeHtml(item.id)} · ${escapeHtml(item.title)}
-            <span>${escapeHtml(toLabel(item.type))} · ${escapeHtml(toLabel(item.status))}</span>
-          </button>
+          <article class="assistant-case-card">
+            <p class="assistant-case-title">${escapeHtml(item.title || "")}</p>
+            <p class="assistant-case-line"><strong>Issue:</strong> ${escapeHtml(item.issue || "")}</p>
+            <p class="assistant-case-line"><strong>Solved:</strong> ${escapeHtml(item.resolution || "")}</p>
+            <button type="button" class="assistant-case-btn" data-item-id="${item.id}">Open full case</button>
+          </article>
         `
         )
         .join("");
 
       return `
         <article class="assistant-message bot">
-          <p>${formatMessageText(message.text)}</p>
+          <p>${formatAssistantMessageText(message.text)}</p>
           ${matchesMarkup ? `<div class="assistant-cases">${matchesMarkup}</div>` : ""}
         </article>
       `;
