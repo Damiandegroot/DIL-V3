@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>RED in-SYNCC v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<aside class="left-rail" id="left-rail" aria-expanded="true">
+  <div class="left-rail-head">
+    <div class="left-rail-brand">
+      <div class="rail-brand-copy"><strong>in-SYNCC dashboard</strong></div>
+    </div>
+    <button class="left-rail-toggle" id="left-rail-toggle" type="button" aria-label="Collapse sidebar">‹</button>
+  </div>
+  <div class="left-rail-profile">
+    <div class="left-rail-avatar" id="personal-avatar">NE</div>
+    <div class="left-rail-user">
+      <strong id="personal-name">Damian de Groot</strong>
+      <span id="personal-role">Sales Representative</span>
+      <span id="personal-dept">Cross-functional</span>
+    </div>
+  </div>
+  <div class="left-rail-stats">
+    <div class="left-rail-stat"><span>Open</span><strong id="personal-open-count">0</strong></div>
+    <div class="left-rail-stat"><span>Resolved</span><strong id="personal-resolved-count">0</strong></div>
+    <div class="left-rail-stat"><span>Likes</span><strong id="personal-likes-count">0</strong></div>
+  </div>
+  <nav class="left-rail-nav">
+    <button class="left-rail-nav-btn is-active" type="button" data-rail-screen="dashboard"><span class="rail-icon">D</span><span class="rail-text">Dashboard</span></button>
+    <button class="left-rail-nav-btn" type="button" data-rail-screen="meeting"><span class="rail-icon">M</span><span class="rail-text">Meeting Mode</span></button>
+    <button class="left-rail-nav-btn" type="button" data-rail-screen="create"><span class="rail-icon">N</span><span class="rail-text">New Item</span></button>
+    <button class="left-rail-nav-btn" type="button" data-rail-screen="archive"><span class="rail-icon">A</span><span class="rail-text">Archive &amp; Assistant</span></button>
+    <button class="left-rail-nav-btn" type="button" data-rail-screen="analytics"><span class="rail-icon">#</span><span class="rail-text">Analytics</span></button>
+    <button class="left-rail-nav-btn" type="button" data-rail-screen="notifications"><span class="rail-icon">!</span><span class="rail-text">Notifications</span></button>
+  </nav>
+  <div class="left-rail-section">
+    <div class="left-rail-section-head"><h4>My Focus</h4><button type="button" class="left-rail-link-btn" data-personal-target="my-focus">Open</button></div>
+    <div class="personal-focus-list" id="personal-focus-list"></div>
+  </div>
+  <div class="left-rail-section">
+    <h4>Quick Jump</h4>
+    <div class="left-rail-jump-grid">
+      <button type="button" class="left-rail-jump-btn" data-personal-target="agenda">Agenda</button>
+      <button type="button" class="left-rail-jump-btn" data-personal-target="celebrations">Celebrations</button>
+      <button type="button" class="left-rail-jump-btn" data-personal-target="my-favs">Favorites</button>
+      <button type="button" class="left-rail-jump-btn" data-personal-target="notif-center">Notifications</button>
+    </div>
+  </div>
+</aside>
+<div class="app-content">
+<section class="hero-band">
+  <div class="hero-copy">
+    <p class="eyebrow">RED in-SYNCC</p>
+    <h1>Meeting Challenge Dashboard</h1>
+    <p class="hero-sub">Manage challenges across departments and meeting levels.</p>
+    <div class="hero-controls" id="hero-controls">
+      <div class="hero-control-group"><label class="hero-label" for="role-selector">View as</label><select id="role-selector" class="hero-select"><option value="sales_rep">Sales Representative</option><option value="supervisor">Supervisor</option></select></div>
+      <div class="hero-control-group"><label class="hero-label" for="dept-filter">Department</label><select id="dept-filter" class="hero-select"><option value="all">All Departments</option></select></div>
+      <div class="hero-control-group"><label class="hero-label" for="meeting-level-filter">Meeting Level</label><select id="meeting-level-filter" class="hero-select"><option value="all">All Levels</option><option value="team_weekly">Senior Manager (09:45)</option><option value="regional_red">Associate Director</option><option value="national_red">Director (11:00)</option><option value="leadership_sync">Leadership Team (15:00)</option></select></div>
+    </div>
+    <p id="role-permission-note" class="role-permission-note">Sales representative mode: view + create only.</p>
+  </div>
+  <div class="hero-metrics">
+    <div class="metric-tile"><span id="metric-open">0</span><small>Open items</small></div>
+    <div class="metric-tile"><span id="metric-overdue">0</span><small>Overdue</small></div>
+  </div>
+</section>
+<div class="notification-banner" id="notification-banner" style="display:none"><div class="notification-content"><span class="notification-icon">&#x1F514;</span><span class="notification-text" id="notification-text"></span><button class="notification-dismiss" id="notification-dismiss">Dismiss</button></div></div>
+<nav class="top-nav">
+  <button class="tab is-active" data-screen="dashboard">Dashboard</button>
+  <button class="tab" data-screen="meeting">Meeting Mode</button>
+  <button class="tab" data-screen="create">New Item</button>
+  <button class="tab" data-screen="archive">Archive &amp; Assistant</button>
+  <button class="tab" data-screen="analytics">Analytics</button>
+  <button class="tab" data-screen="notifications">Notifications</button>
+</nav>
+<main>
+  <section id="screen-dashboard" class="screen is-visible">
+    <div class="dashboard-shell">
+      <div class="dashboard-main">
+        <div class="panel dashboard-kpi-panel"><div id="kpi-grid" class="kpi-grid"></div></div>
+        <div class="dd-list" id="dash-dropdowns">
+          <div class="dd-card"><button class="dd-toggle" data-dd="prev-week"><div class="dd-text"><strong>&#x1F4CB; Summary of Previous Week</strong><span>Resolved, open, and escalated from last week</span></div><span class="dd-badge" id="badge-prev-week"></span><span class="dd-chevron">&#x25BE;</span></button><div class="dd-body"><div id="prev-week-items"></div></div></div>
+          <div class="dd-card"><button class="dd-toggle" data-dd="celebrations"><div class="dd-text"><strong>&#x1F389; Celebrations &amp; Contributions</strong><span>Team achievements and knowledge sharing</span></div><span class="dd-badge" id="badge-celebrations"></span><span class="dd-chevron">&#x25BE;</span></button><div class="dd-body"><div id="celebration-cards"></div></div></div>
+          <div class="dd-card"><button class="dd-toggle" data-dd="my-focus"><div class="dd-text"><strong>My Focus</strong><span>Items requiring your attention</span></div><span class="dd-badge" id="badge-my-focus"></span><span class="dd-chevron">&#x25BE;</span></button><div class="dd-body"><div id="my-focus-items"></div></div></div>
+          <div class="dd-card"><button class="dd-toggle" data-dd="my-dept"><div class="dd-text"><strong>My Department Focus</strong><span>Challenges assigned to your department</span></div><span class="dd-badge" id="badge-my-dept"></span><span class="dd-chevron">&#x25BE;</span></button><div class="dd-body"><div id="my-dept-items"></div></div></div>
+          <div class="dd-card"><button class="dd-toggle" data-dd="my-favs"><div class="dd-text"><strong>&#x2605; My Favorite Cases</strong><span>Cases you bookmarked for quick access</span></div><span class="dd-badge" id="badge-my-favs"></span><span class="dd-chevron">&#x25BE;</span></button><div class="dd-body"><div id="my-favs-items"></div></div></div>
+          <div class="dd-card"><button class="dd-toggle" data-dd="recommendations"><div class="dd-text"><strong>System Recommendations</strong><span>Intelligent suggestions based on similarity and pattern detection</span></div><span class="dd-badge" id="badge-recommendations"></span><span class="dd-chevron">&#x25BE;</span></button><div class="dd-body"><div id="recommendation-items"></div></div></div>
+          <div class="dd-card"><button class="dd-toggle" data-dd="notif-center"><div class="dd-text"><strong>Notification Center</strong><span>Recent alerts, assignments, and status changes</span></div><span class="dd-badge" id="badge-notif-center"></span><span class="dd-chevron">&#x25BE;</span></button><div class="dd-body"><div id="dash-notif-items"></div></div></div>
+          <div class="dd-card"><button class="dd-toggle" data-dd="agenda"><div class="dd-text"><strong id="dashboard-agenda-title">Agenda for current RED IN-SYNCC meeting</strong><span id="dashboard-agenda-subtitle">Meeting Monday: ...</span></div><span class="dd-badge" id="badge-agenda"></span><span class="dd-chevron">&#x25BE;</span></button><div class="dd-body"><div style="margin-bottom:10px"><button class="mini-btn" id="view-current-dashboard-week">This Week</button> <button class="mini-btn" id="view-next-dashboard-week">Next Week</button></div><div id="dashboard-items" class="item-grid"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="screen-meeting" class="screen">
+    <div class="panel"><div class="meeting-week-bar"><p class="meeting-week-label" id="meeting-week-label">Current meeting</p><div class="meeting-week-actions"><button class="mini-btn" id="view-current-meeting-week">Current week</button><button class="mini-btn" id="view-next-meeting-week">Next week</button><button class="mini-btn meeting-link-btn" id="open-meeting-page-link">Open Meeting Link</button></div></div><div id="meeting-agenda" class="meeting-list"></div></div>
+    <div class="panel"><div class="panel-header"><h2>Meeting Recap</h2><p>Decisions and actions captured during this session.</p></div><div class="recap-actions"><input id="recap-email-to" type="text" placeholder="Recipients (comma separated or auto-fill)"/><button class="mini-btn" id="auto-fill-recipients">Auto-fill</button><button class="btn-primary" id="send-recap-email">Send Recap Email</button></div><textarea id="recap-draft" rows="8"></textarea></div>
+  </section>
+  <section id="screen-create" class="screen">
+    <div class="panel"><div class="panel-header"><h2>Add New Item</h2><p>Log a challenge, contribution, or celebration.</p></div>
+    <form id="new-item-form" class="form-grid">
+      <label>Type<select name="itemType" id="item-type"><option value="challenge">Challenge</option><option value="contribution">Contribution</option><option value="celebration">Celebration</option></select></label>
+      <label>Title<input name="title" required placeholder="Clear, concise title"/></label>
+      <label class="full-width">Description<textarea name="description" rows="3" required placeholder="Provide enough context (min 120 chars for challenges)"></textarea></label>
+      <label>Department<select name="department" id="create-department"><option value="Jumbo &amp; Discounters">Jumbo &amp; Discounters</option><option value="Field Sales North">Field Sales North</option><option value="Field Sales South">Field Sales South</option><option value="Key Accounts Supermarkets">Key Accounts Supermarkets</option><option value="Convenience &amp; Petrol">Convenience &amp; Petrol</option><option value="E-commerce Sales">E-commerce Sales</option><option value="Wholesalers">Wholesalers</option><option value="Sales Operations">Sales Operations</option><option value="Trade Marketing">Trade Marketing</option><option value="Revenue Growth Management">Revenue Growth Management</option></select></label>
+      <label>Your Name<input name="createdBy" value="Damian de Groot" required/></label>
+      <label>Assign to Support Department<select name="assignToDept" id="assign-to-dept"><option value="">-- No assignment yet --</option><option value="Legal">Legal</option><option value="Finance">Finance</option><option value="Operations">Operations</option><option value="IT">IT</option><option value="Supply Chain">Supply Chain</option><option value="HR">HR</option><option value="Field Sales North">Field Sales North</option><option value="Field Sales South">Field Sales South</option><option value="Key Accounts Supermarkets">Key Accounts</option><option value="Trade Marketing">Trade Marketing</option></select></label>
+      <label>Involve External Person (email)<input name="externalEmail" type="email" placeholder="Optional"/></label>
+      <label>Priority<select name="priority"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
+      <label>Due Date<input name="dueDate" type="date"/></label>
+      <label>Stakeholders<input name="stakeholders" placeholder="Comma separated names or roles"/></label>
+      <div id="challenge-fields" class="type-box full-width"><h3>Challenge details</h3><div class="inline-grid"><label>Recurring?<select name="isRecurring"><option value="no">No</option><option value="yes">Yes</option></select></label><label>Escalation level<select name="escalationLevel"><option value="none">None</option><option value="team_lead">Team Lead</option><option value="senior_leadership">Senior Leadership</option></select></label><label>Related item code<input name="relatedItemCode" placeholder="e.g. HJD01970"/></label><label>Target Meeting Level<select name="targetMeetingLevel"><option value="team_weekly">Senior Manager (09:45)</option><option value="regional_red">Associate Director</option><option value="national_red">Director (11:00)</option><option value="leadership_sync">Leadership Team (15:00)</option></select></label></div></div>
+      <div id="contribution-fields" class="type-box full-width is-hidden"><h3>Contribution details</h3><div class="inline-grid"><label>Topic tag<input name="topicTag" placeholder="e.g. Process, Data"/></label><label>Target audience<input name="targetAudience" placeholder="Who benefits"/></label></div></div>
+      <div id="celebration-fields" class="type-box full-width is-hidden"><h3>Celebration details</h3><div class="inline-grid"><label>Milestone type<input name="milestoneType" placeholder="e.g. Volume growth"/></label><label>Audience note<input name="audienceNote" placeholder="Who to celebrate with"/></label></div></div>
+      <div class="form-actions full-width"><button type="submit" class="btn-primary">Create item</button></div>
+    </form></div>
+  </section>
+  <section id="screen-archive" class="screen">
+    <div id="fav-section" class="fav-section-standalone" style="display:none">
+      <div class="fav-header"><strong>&#x2605; Favourite Cases</strong><span class="fav-badge" id="fav-badge"></span><button class="fav-clear-btn" id="fav-clear-btn">Clear All</button></div>
+      <div id="fav-list" class="fav-list"></div>
+    </div>
+    <div class="archive-layout">
+      <div class="panel archive-panel">
+        <div class="panel-header"><h2>Archive</h2><p>All departments -- solutions from other teams may be useful.</p></div>
+        <div class="archive-filters"><input id="archive-query" placeholder="Search..."/><select id="archive-type"><option value="all">All types</option><option value="challenge">Challenge</option><option value="contribution">Contribution</option><option value="celebration">Celebration</option></select><select id="archive-status"><option value="all">All statuses</option><option value="new">New</option><option value="assigned">Assigned</option><option value="in_discussion">In Discussion</option><option value="escalated">Escalated</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select><select id="archive-dept-filter"><option value="all">All departments</option></select></div>
+        <div id="archive-results" class="archive-list"></div>
+      </div>
+      <div class="panel assistant-panel"><div class="panel-header"><h2>Smart Assistant</h2><p>Describe a challenge and get advice from the knowledge base.</p></div><div class="assistant-chat-shell"><div id="assistant-messages" class="assistant-messages"></div><form id="assistant-form" class="assistant-form"><input id="assistant-input" placeholder="Describe your challenge..."/><button type="submit" class="btn-primary">Ask</button></form></div></div>
+    </div>
+  </section>
+  <section id="screen-analytics" class="screen"></section>
+  <section id="screen-notifications" class="screen">
+    <div class="panel"><div class="panel-header"><h2>Notification Center</h2><p>Department notifications and status updates.</p></div><div id="notifications-list" class="notifications-list"></div></div>
+    <div class="panel"><div class="panel-header"><h2>Notification Preferences</h2></div><div class="notification-prefs"><label class="pref-row"><input type="checkbox" id="pref-email-notify" checked/><span>Email notifications for new assignments</span></label><label class="pref-row"><input type="checkbox" id="pref-escalation-notify" checked/><span>Escalation alerts</span></label><label class="pref-row"><input type="checkbox" id="pref-overdue-notify" checked/><span>Overdue challenge reminders</span></label><label class="pref-row"><input type="checkbox" id="pref-resolution-notify" checked/><span>Resolution confirmations</span></label></div></div>
+  </section>
+</main>
+</div>
+<aside class="detail-drawer" id="detail-drawer" aria-hidden="true"><button class="drawer-close" id="close-drawer">Close &#x2715;</button><div id="detail-content"></div></aside>
+<div class="modal" id="escalate-modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Escalate Challenge</h3><button class="drawer-close" id="close-escalate-modal">&#x2715;</button></div><p class="modal-sub">Move this challenge to a higher meeting level.</p><form id="escalate-form" class="form-grid modal-form"><input type="hidden" id="escalate-item-id" name="itemId"/><label>Target meeting<select id="escalate-target-meeting" name="targetMeeting"><option value="team_weekly">Senior Manager (09:45)</option><option value="regional_red">Associate Director</option><option value="national_red">Director (11:00)</option><option value="leadership_sync">Leadership Team (15:00)</option></select></label><label>Escalation level<select id="escalate-level" name="escalationLevel"><option value="team_lead">Team Lead</option><option value="senior_leadership">Senior Leadership</option></select></label><label>Target meeting date<input id="escalate-meeting-date" name="nextMeetingDate" type="date"/></label><label>Escalated to (owner)<input id="escalate-owner" name="escalatedTo" placeholder="Person or department"/></label><label class="full-width">Escalation reason<textarea id="escalate-reason" name="escalationReason" rows="2" placeholder="Why? (min 12 chars)"></textarea></label><div class="form-actions full-width modal-actions"><button type="button" class="mini-btn" id="cancel-escalate">Cancel</button><button type="submit" class="btn-primary">Escalate</button></div></form></div></div>
+<div class="modal" id="meeting-rec-modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Meeting Recommendation</h3><button class="drawer-close" id="rec-close-btn">&#x2715;</button></div><p class="modal-sub">A similar resolved case was found. You can reuse the solution.</p><input type="hidden" id="rec-item-id"/><input type="hidden" id="rec-matched-id"/><div id="rec-body"></div><div class="form-actions modal-actions" style="margin-top:12px"><button type="button" class="mini-btn" id="rec-skip-btn">Skip -- Proceed to meeting</button><button type="button" class="btn-primary" id="rec-apply-btn">Apply solution and skip meeting</button></div></div></div>
+<div class="modal" id="recurring-alert-modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Recurring Challenge Detected</h3><button class="drawer-close" id="recurring-close-btn">&#x2715;</button></div><p class="modal-sub">This challenge pattern has appeared multiple times. Consider escalating.</p><input type="hidden" id="recurring-item-id"/><div id="recurring-body"></div><div class="form-actions modal-actions" style="margin-top:12px"><button type="button" class="mini-btn" id="recurring-close-btn-2">Keep at current level</button><button type="button" class="btn-primary" id="recurring-escalate-btn">Escalate to higher meeting</button></div></div></div>
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
