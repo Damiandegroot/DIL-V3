@@ -75,6 +75,7 @@ let activeRoleView = "sales_rep";
 const AUTH_CONFIG = {
   supabaseUrl: String(window.RED_SYNC_CONFIG?.supabaseUrl || "").trim(),
   supabaseAnonKey: String(window.RED_SYNC_CONFIG?.supabaseAnonKey || "").trim(),
+  supabaseRedirectUrl: String(window.RED_SYNC_CONFIG?.supabaseRedirectUrl || "").trim(),
   inviteEndpoint: "/api/invite-user",
 };
 
@@ -241,9 +242,10 @@ async function signInWithPassword(email, password) {
 
 async function sendMagicLink(email) {
   if (!authClient) throw new Error("Authentication is not configured.");
+  const redirectTo = AUTH_CONFIG.supabaseRedirectUrl || window.location.origin;
   const { error } = await authClient.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.origin },
+    options: { emailRedirectTo: redirectTo },
   });
   if (error) throw new Error(error.message || "Magic link request failed.");
 }
