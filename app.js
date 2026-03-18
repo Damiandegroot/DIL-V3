@@ -5,6 +5,9 @@ const MEETING_LINK_STORAGE_KEY = "red-sync-v1-meeting-link";
 const DEFAULT_MEETING_LINK = "";
 const MEETING_GATE_SIMILARITY_THRESHOLD = 0.23;
 const MEETING_GATE_MIN_SOLUTION_CHARS = 40;
+const CREATE_SIMILAR_MIN_WORDS = 3;
+const CREATE_SIMILAR_THRESHOLD = 0.14;
+const CREATE_SIMILAR_LIMIT = 4;
 const RULE_ALERT_STORAGE_KEY = "red-sync-v1-rule-alerts";
 const KNOWLEDGE_REUSE_THRESHOLD = 0.60;   // Feature 1: meeting decision engine
 const RECURRING_WINDOW_DAYS = 60;         // Feature 7: recurring challenge window
@@ -78,6 +81,14 @@ function normalizeRoleView(value) {
 
 function isSupervisorView() {
   return normalizeRoleView(activeRoleView) === "supervisor";
+}
+
+function canCollaborateOnItem(item) {
+  return isSupervisorView() || item?.type === "challenge";
+}
+
+function canCommentOnItem(item) {
+  return Boolean(item);
 }
 
 function getAllowedScreensForRole() {
@@ -3013,6 +3024,7 @@ function detectRecurringChallenges(sourceItem) {
 // ── Feature 4: Escalation Intelligence Engine ─────────────────────────────────
 
 function getRecurringEscalationSuggestion(item) {
+  if (item.details?.recurringEscSuggestionIgnored) return null;
   // Rule 2: same challenge type ≥3 times in 60 days
   const recurring = detectRecurringChallenges(item);
   if (recurring.length >= RECURRING_MIN_COUNT - 1) {
@@ -3351,6 +3363,95 @@ function findMeetingGateMatch(candidateText) {
   const best = scored[0];
   if (best.similarity < MEETING_GATE_SIMILARITY_THRESHOLD) return null;
   return best;
+}
+
+function getCreateSimilarPool() {
+  const resolvedChallenges = items.filter((item) => (
+    item.type === "challenge" && ["resolved", "closed"].includes(item.status)
+  ));
+  if (resolvedChallenges.length) return resolvedChallenges;
+  return items.filter((item) => item.type === "challenge");
+}
+
+function findCreateSimilarCases(query, limit = CREATE_SIMILAR_LIMIT) {
+  const profile = buildAssistantQueryProfile(query);
+  const pool = getCreateSimilarPool();
+  if (!pool.length) return [];
+  if (!profile.tokens.length) {
+    return pool.slice(0, limit).map((item) => ({ item, score: 0.05 }));
+  }
+
+  const scored = pool
+    .map((item) => {
+      const base = scoreAssistantCase(profile, item);
+      let score = base;
+      if (["resolved", "closed"].includes(item.status)) score += 0.04;
+      if ((item.solution || "").trim().length >= 24) score += 0.03;
+      return { item, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const strongMatches = scored
+    .filter(({ score }) => score >= CREATE_SIMILAR_THRESHOLD)
+    .slice(0, limit);
+
+  if (strongMatches.length) return strongMatches;
+  return scored.slice(0, limit);
+}
+
+function clearCreateDescriptionSuggestions() {
+  const host = document.querySelector("#create-similar-cases");
+  if (!host) return;
+  host.innerHTML = "";
+  host.classList.add("is-hidden");
+}
+
+function renderCreateDescriptionSuggestions() {
+  const typeSelect = document.querySelector("#item-type");
+  const descriptionInput = document.querySelector("#create-description-input");
+  const host = document.querySelector("#create-similar-cases");
+  if (!typeSelect || !descriptionInput || !host) return;
+
+  const type = typeSelect.value;
+  const description = String(descriptionInput.value || "").trim();
+  const typedWordCount = normalizeSearchText(description).split(/\s+/).filter(Boolean).length;
+  if (type !== "challenge" || typedWordCount < CREATE_SIMILAR_MIN_WORDS) {
+    clearCreateDescriptionSuggestions();
+    return;
+  }
+
+  const titleInput = document.querySelector('#new-item-form [name="title"]');
+  const title = String(titleInput?.value || "").trim();
+  const query = `${title} ${description}`.trim();
+  const matches = findCreateSimilarCases(query);
+
+  if (!matches.length) {
+    clearCreateDescriptionSuggestions();
+    return;
+  }
+
+  host.innerHTML = `
+    <div class="create-similar-head">
+      <p class="create-similar-title">Similar Archive Cases</p>
+      <p class="create-similar-count">${matches.length} match${matches.length === 1 ? "" : "es"}</p>
+    </div>
+    <div class="create-similar-list">
+      ${matches.map(({ item, score }) => {
+    const matchPct = Math.max(1, Math.round(Math.min(score, 0.99) * 100));
+    return `<button type="button" class="create-similar-item" data-action="open-create-similar" data-item-id="${item.id}">
+          <div class="create-similar-item-top">
+            <span class="create-similar-item-id">${escapeHtml(item.id)}</span>
+            <span class="create-similar-item-score">${matchPct}% match</span>
+          </div>
+          <p class="create-similar-item-case">${escapeHtml(item.title)}</p>
+          <p class="create-similar-item-meta">${escapeHtml(toLabel(item.status))} - ${escapeHtml(item.department)}</p>
+          ${(item.solution || "").trim() ? `<p class="create-similar-item-snippet">${escapeHtml(truncate(item.solution, 120))}</p>` : ""}
+        </button>`;
+  }).join("")}
+    </div>
+    <p class="create-similar-foot">Click a case to open details and reuse context.</p>
+  `;
+  host.classList.remove("is-hidden");
 }
 
 // ── Similarity Explorer ──────────────────────────────────────────────────────
@@ -3897,7 +3998,7 @@ function renderMeetingWeekContext() {
   const dashboardTitle = document.querySelector("#dashboard-agenda-title");
   if (dashboardTitle) {
     dashboardTitle.textContent =
-      "Agenda for " + (meetingWeekView === "next" ? "next" : "current") + " RED IN-SYNCC meeting";
+      "Agenda - " + (meetingWeekView === "next" ? "next" : "") + " RED IN-SYNCC meeting";
   }
 
   const dashboardSubtitle = document.querySelector("#dashboard-agenda-subtitle");
@@ -3976,7 +4077,7 @@ function renderDashboard() {
   renderMyFocus();
   renderMyDeptFocus();
   renderRecommendations();
-  renderDashNotifications();
+  renderRailNotifications();
   renderDashFavorites();
   renderPersonalPanel();
 }
@@ -4144,6 +4245,15 @@ function toggleCelebrationLike(itemId) {
   if (alreadyLiked) likes.delete(actor);
   else likes.add(actor);
   item.likedBy = Array.from(likes);
+  if (!alreadyLiked && actor !== item.createdBy) {
+    addNotification({
+      type: "like",
+      itemId: item.id,
+      title: `New like on ${item.id}`,
+      body: `${actor} liked your ${toLabel(item.type).toLowerCase()}: "${item.title}".`,
+      department: item.department,
+    });
+  }
   saveItems();
   renderCelebrationCards();
   showToast(alreadyLiked ? `Removed your like from ${item.id}` : `${actor} liked ${item.id}`);
@@ -4266,13 +4376,41 @@ function renderRecommendations() {
   el.innerHTML = recs.length ? '<div class="rec-list">' + recs.slice(0,6).map(r => `<div class="rec-card" data-item-id="${r.itemId}"><div class="rec-icon ${r.icon}">${r.emoji}</div><div class="rec-body"><h4>${escapeHtml(r.title)}</h4><p>${escapeHtml(r.body)}</p></div><div class="rec-action"><button class="mini-btn" data-item-id="${r.itemId}">View</button></div></div>`).join("") + '</div>' : '<p class="dash-empty">All items on track.</p>';
 }
 
-function renderDashNotifications() {
-  const el = document.querySelector("#dash-notif-items"); if (!el) return;
-  const notifs = loadNotifications().slice(0, 8);
-  _setBadge("badge-notif-center", notifs.filter(n => !n.read).length);
-  if (!notifs.length) { el.innerHTML = '<p class="dash-empty">No notifications yet.</p>'; return; }
-  const im = {assign:"\uD83D\uDCCB",escalate:"\u26A1",resolve:"\u2705",overdue:"\u23F0",info:"\u2139\uFE0F"};
-  el.innerHTML = notifs.map(n => `<div class="notif-mini"><span class="notif-mini-icon">${im[n.type]||"\uD83D\uDCCC"}</span><div class="notif-mini-body"><strong>${escapeHtml(n.title)}</strong><p>${escapeHtml(n.body)}</p></div><span class="notif-mini-time">${getTimeAgo(n.timestamp)}</span></div>`).join("");
+function renderRailNotifications() {
+  const el = document.querySelector("#left-rail-notification-list");
+  const badge = document.querySelector("#left-rail-notif-badge");
+  if (!el) return;
+
+  const unreadAll = loadNotifications().filter((n) => !n.read);
+  const unread = unreadAll.slice(0, 24);
+  if (badge) badge.textContent = unreadAll.length ? String(unreadAll.length) : "";
+  if (!unread.length) {
+    el.innerHTML = '<p class="dash-empty">No new notifications.</p>';
+    return;
+  }
+
+  const iconByType = {
+    assign: "\uD83D\uDCCB",
+    escalate: "\u26A1",
+    resolve: "\u2705",
+    overdue: "\u23F0",
+    like: "\uD83D\uDC4D",
+    info: "\u2139\uFE0F",
+  };
+
+  el.innerHTML = unread.map((notif) => `
+    <article class="left-rail-notif-item" data-notif-id="${notif.id}">
+      <div class="left-rail-notif-top">
+        <span class="left-rail-notif-icon">${iconByType[notif.type] || "\uD83D\uDCCC"}</span>
+        <strong class="left-rail-notif-title">${escapeHtml(notif.title)}</strong>
+      </div>
+      <p class="left-rail-notif-body">${escapeHtml(truncate(notif.body, 78))}</p>
+      <div class="left-rail-notif-footer">
+        <span class="left-rail-notif-time">${getTimeAgo(notif.timestamp)}</span>
+        <button type="button" class="left-rail-notif-read" data-notif-read="${notif.id}">Read</button>
+      </div>
+    </article>
+  `).join("");
 }
 
 function renderMeeting() {
@@ -4545,9 +4683,9 @@ function buildSLATimerHTML(item) {
   if (diffMs < 0) { cls = "sla-breached"; label = `BREACHED ${Math.abs(diffDays)}d ago`; }
   else if (diffDays <= 2) { cls = "sla-warning"; label = diffDays === 0 ? "Due TODAY" : `${diffDays}d remaining`; }
   else { cls = "sla-ok"; label = `${diffDays}d remaining`; }
-  const icon = diffMs < 0 ? "&#x1F534;" : diffDays <= 2 ? "&#x1F7E1;" : "&#x1F7E2;";
+  const iconClass = diffMs < 0 ? "is-breached" : diffDays <= 2 ? "is-warning" : "is-ok";
   const pct = Math.max(0, Math.min(100, diffMs < 0 ? 100 : (1 - diffDays / 21) * 100));
-  return `<div class="sla-timer ${cls}"><div class="sla-icon">${icon}</div><div class="sla-info"><strong>${label}</strong><span>Due: ${item.dueDate}</span></div><div class="sla-bar-wrap"><div class="sla-bar" style="width:${pct}%"></div></div></div>`;
+  return `<div class="sla-timer ${cls}"><div class="sla-icon ${iconClass}" aria-hidden="true"></div><div class="sla-info"><strong>${label}</strong><span>Due: ${item.dueDate}</span></div><div class="sla-bar-wrap"><div class="sla-bar" style="width:${pct}%"></div></div></div>`;
 }
 
 // ═══ Benchmark: Activity Timeline (ServiceNow) ══════════════════════════
@@ -4579,8 +4717,8 @@ function buildResolutionTimeAnalytics() {
   return {avgDays:avg, slaMetPct:Math.round((met/res.length)*100), fastest:Math.min(...times), slowest:Math.max(...times), total:res.length};
 }
 
-// ═══ V3 Benchmark: SLA Countdown Timer (Jira SM) ════════════════════════
-function buildSLATimerHTML(item) {
+// ═══ V3: Drawer SLA Header Pill ══════════════════════════════════════════
+function buildDrawerSLAPillHTML(item) {
   if (!item.dueDate || !isOpenStatus(item.status)) return "";
   const now = new Date(), due = new Date(item.dueDate + "T23:59:59");
   const diffMs = due - now, diffDays = Math.ceil(diffMs / 864e5);
@@ -4588,9 +4726,7 @@ function buildSLATimerHTML(item) {
   if (diffMs < 0) { cls = "sla-breached"; label = `BREACHED ${Math.abs(diffDays)}d ago`; }
   else if (diffDays <= 2) { cls = "sla-warning"; label = diffDays === 0 ? "Due TODAY" : `${diffDays}d remaining`; }
   else { cls = "sla-ok"; label = `${diffDays}d remaining`; }
-  const icon = diffMs < 0 ? "&#x1F534;" : diffDays <= 2 ? "&#x1F7E1;" : "&#x1F7E2;";
-  const pct = Math.max(0, Math.min(100, diffMs < 0 ? 100 : (1 - diffDays / 21) * 100));
-  return `<div class="sla-timer ${cls}"><div class="sla-icon">${icon}</div><div class="sla-info"><strong>${label}</strong><span>Due: ${item.dueDate}</span></div><div class="sla-bar-wrap"><div class="sla-bar" style="width:${pct}%"></div></div></div>`;
+  return `<div class="drawer-sla-pill ${cls}"><span class="drawer-sla-dot" aria-hidden="true"></span><span class="drawer-sla-label">${label}</span><span class="drawer-sla-due">Due ${item.dueDate}</span></div>`;
 }
 
 // ═══ V3 Benchmark: Activity Timeline (ServiceNow) ═══════════════════════
@@ -4626,71 +4762,34 @@ function openDetailDrawer(itemId) {
   const item = items.find((entry) => entry.id === itemId);
   if (!item) return;
   const canManage = isSupervisorView();
+  const isChallenge = item.type === "challenge";
+  const canEditSolution = isChallenge && canCollaborateOnItem(item);
+  const canComment = canCommentOnItem(item);
 
-  const solutionText = item.solution && item.solution.trim().length > 0 ? item.solution : "Not documented yet";
-  const solutionActionHTML =
-    canManage && item.type === "challenge" && item.status === "resolved"
-      ? `<p><button type="button" class="mini-btn" data-action="edit-solution" data-item-id="${item.id}">Add or Edit Solution</button></p>`
-      : "";
-  const resolvedMeta =
+  const hasSolution = Boolean(item.solution && item.solution.trim().length > 0);
+  const solutionText = hasSolution ? item.solution.trim() : "Not documented yet";
+  const ownerValue = getOwnerName(item) || "Unassigned";
+  const meetingNeededValue = item.meetingNeeded === false ? "No (handled via gate/follow-up)" : "Yes";
+  const resolvedValue =
     item.status === "resolved" || item.status === "closed"
-      ? `<p><strong>Resolved by:</strong> ${item.resolvedBy || "Not recorded"}${item.resolvedAt ? ` on ${item.resolvedAt}` : ""}</p>`
-      : "";
-  const escalationMeta = item.details?.escalationTargetMeeting
-    ? `<p><strong>Escalated to meeting:</strong> ${meetingLayerLabel(item.details.escalationTargetMeeting)}${
-        item.details?.escalationMeetingDate ? ` on ${item.details.escalationMeetingDate}` : ""
-      }</p>`
-    : "";
-  const escalationOwnerMeta = item.details?.escalatedTo
-    ? `<p><strong>Escalated to:</strong> ${item.details.escalatedTo}</p>`
-    : "";
-  const escalationReasonMeta = item.details?.escalationReason
-    ? `<p><strong>Escalation reason:</strong> ${item.details.escalationReason}</p>`
-    : "";
+      ? `${item.resolvedBy || "Not recorded"}${item.resolvedAt ? ` (${item.resolvedAt})` : ""}`
+      : "Not resolved yet";
 
-  const meetingGateMeta = item.details?.meetingGate?.matchedItemId
-    ? `<p><strong>Meeting gate:</strong> matched ${item.details.meetingGate.matchedItemId} (${Math.round(
-        (item.details.meetingGate.similarity || 0) * 100
-      )}%). ${item.meetingNeeded === false ? "Meeting skipped" : "Kept for meeting"}.</p>`
-    : "";
-
-  const solutionTemplateMeta = item.solutionTemplate
-    ? `
-      <div class="solution-template">
-        <h4>Solution template</h4>
-        ${item.solutionTemplate.rootCause ? `<p><strong>Root cause:</strong> ${item.solutionTemplate.rootCause}</p>` : ""}
-        ${item.solutionTemplate.actionSteps ? `<p><strong>Action steps:</strong> ${item.solutionTemplate.actionSteps}</p>` : ""}
-        ${item.solutionTemplate.prevention ? `<p><strong>Prevention:</strong> ${item.solutionTemplate.prevention}</p>` : ""}
-        ${item.solutionTemplate.validatedBy ? `<p><strong>Validated by:</strong> ${item.solutionTemplate.validatedBy}</p>` : ""}
-        ${item.solutionTemplate.reusableTags ? `<p><strong>Tags:</strong> ${item.solutionTemplate.reusableTags}</p>` : ""}
-      </div>
-    `
-    : "";
-
-  const meetingNeededMeta =
-    item.meetingNeeded === false
-      ? `<p><strong>Meeting needed:</strong> No (handled via meeting gate / owner follow-up)</p>`
-      : `<p><strong>Meeting needed:</strong> Yes</p>`;
-
-  const escalationSuggestion = getEscalationSuggestion(item);
   const recurringEscSuggestion = item.type === "challenge" ? getRecurringEscalationSuggestion(item) : null;
-  const escalationSuggestionMeta = escalationSuggestion
-    ? `<p><strong>Rule trigger:</strong> overdue + high priority. Consider escalation.</p>
-       ${canManage ? `<p><button type="button" class="mini-btn" data-action="quick-escalate" data-item-id="${item.id}">Open escalation with suggested values</button></p>` : ""}`
-    : "";
-  const recurringEscMeta = recurringEscSuggestion
+  const canShowEscalationSuggestions = canManage && isChallenge && item.status !== "escalated";
+  const recurringEscMeta = recurringEscSuggestion && canShowEscalationSuggestions
     ? `<div class="recurring-esc-alert">
-        <strong>⚠ Escalation Suggestion</strong>
+        <strong>Escalation Suggestion</strong>
         <p>${escapeHtml(recurringEscSuggestion.reason)}</p>
         <p><em>${escapeHtml(recurringEscSuggestion.ruleLabel)}</em></p>
-        ${canManage ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
           <button type="button" class="btn-primary" style="font-size:0.82rem;padding:7px 14px" data-action="quick-escalate" data-item-id="${item.id}">Escalate</button>
           <button type="button" class="mini-btn" data-action="ignore-recurring-esc" data-item-id="${item.id}">Ignore suggestion</button>
-        </div>` : ""}
+        </div>
        </div>`
     : "";
 
-  const similarityExplorerHTML = item.type === "challenge" ? renderSimilarityExplorer(item) : "";
+  const similarityExplorerHTML = canManage && isChallenge ? renderSimilarityExplorer(item) : "";
 
   // V2: Department assignment + email button
   const deptEmail = item.assignedToDept ? (DEPARTMENT_EMAILS[item.assignedToDept] || "") : "";
@@ -4698,58 +4797,150 @@ function openDetailDrawer(itemId) {
   const mailBody = item.assignedToDept ? encodeURIComponent(
     `Hi ${item.assignedToDept} team,\n\nChallenge details:\n\nItem: ${item.id}\nTitle: ${item.title}\nDepartment: ${item.department}\nPriority: ${item.priority}\nStatus: ${toLabel(item.status)}\nDue: ${item.dueDate || "Not set"}\nCreated by: ${item.createdBy} (${item.createdAt})\n\nDescription:\n${item.description}\n\nStakeholders: ${item.stakeholders.join(", ") || "None"}${item.solution ? "\n\nSolution:\n" + item.solution : ""}\n\n---\nSent from RED in-SYNCC`
   ) : "";
-  const deptAssignMeta = item.assignedToDept
-    ? `<p><strong>Assigned to support department:</strong> ${item.assignedToDept}</p>
-       ${deptEmail ? `<div class="dept-email-row"><span class="dept-email-badge">${deptEmail}</span><a href="mailto:${deptEmail}?subject=${mailSubj}&body=${mailBody}" class="dept-email-btn">&#x2709; Send Email to ${item.assignedToDept}</a></div>` : ""}`
+  const deptAssignMeta = isChallenge && item.assignedToDept
+    ? `<div class="detail-section">
+        <h4>Support Department</h4>
+        <div class="detail-kv-grid">
+          <div class="detail-kv-row">
+            <span class="detail-kv-label">Assigned to</span>
+            <span class="detail-kv-value">${escapeHtml(item.assignedToDept)}</span>
+          </div>
+          ${deptEmail ? `<div class="detail-kv-row">
+            <span class="detail-kv-label">Email</span>
+            <span class="detail-kv-value">${escapeHtml(deptEmail)}</span>
+          </div>` : ""}
+        </div>
+        ${deptEmail ? `<div class="dept-email-row"><a href="mailto:${deptEmail}?subject=${mailSubj}&body=${mailBody}" class="dept-email-btn">Send Email to ${item.assignedToDept}</a></div>` : ""}
+      </div>`
     : "";
 
-  const externalEmailMeta = item.externalEmail
-    ? `<p><strong>External contact:</strong> ${item.externalEmail} (responds via email)</p>` : "";
+  const externalEmailMeta = item.externalEmail ? `${item.externalEmail} (email)` : "None";
 
-  const hierarchyHTML = buildHierarchyHTML(item.meetingLevel || "team_weekly");
-  const statusWorkflowHTML = buildStatusWorkflowHTML(item.status);
+  const hierarchyHTML = canManage ? buildHierarchyHTML(item.meetingLevel || "team_weekly") : "";
+  const statusWorkflowHTML = canManage ? buildStatusWorkflowHTML(item.status) : "";
 
-  // V3 Benchmark: SLA Timer
-  const slaHTML = buildSLATimerHTML(item);
+  // Drawer header: compact SLA pill left of close button
+  const statusPillHost = document.querySelector("#detail-status-pill");
+  if (statusPillHost) statusPillHost.innerHTML = buildDrawerSLAPillHTML(item);
 
   // V3 Benchmark: Quick Actions Bar
-  const quickActionsHTML = canManage && isOpenStatus(item.status) ? `<div class="quick-actions-bar">
-    ${item.status === "new" ? `<button class="qa-btn qa-assign" data-qa="assign" data-item-id="${item.id}">&#x1F464; Assign</button>` : ""}
-    ${item.status !== "escalated" ? `<button class="qa-btn qa-escalate" data-qa="escalate" data-item-id="${item.id}">&#x26A1; Escalate</button>` : ""}
-    <button class="qa-btn qa-resolve" data-qa="resolve" data-item-id="${item.id}">&#x2705; Resolve</button>
-    <button class="qa-btn qa-defer" data-qa="defer" data-item-id="${item.id}">&#x23ED; Defer</button>
+  const quickActionsHTML = canManage && isChallenge && isOpenStatus(item.status) ? `<div class="quick-actions-bar">
+    ${item.status === "new" ? `<button class="qa-btn qa-assign" data-qa="assign" data-item-id="${item.id}">Assign</button>` : ""}
+    ${item.status !== "escalated" ? `<button class="qa-btn qa-escalate" data-qa="escalate" data-item-id="${item.id}">Escalate</button>` : ""}
+    <button class="qa-btn qa-resolve" data-qa="resolve" data-item-id="${item.id}">Resolve</button>
+    <button class="qa-btn qa-defer" data-qa="defer" data-item-id="${item.id}">Defer</button>
   </div>` : "";
 
-  const solutionEditorHTML = canManage
-    ? `<div class="inline-sol">
-      <h4>&#x1F4DD; Solution</h4>
+  const solutionEditorHTML = isChallenge
+    ? canEditSolution
+      ? `<section class="detail-section inline-sol">
+      <h4>Solution</h4>
       <textarea class="inline-sol-area" id="inline-sol-text" data-item-id="${item.id}" placeholder="Enter solution...">${escapeHtml(item.solution || "")}</textarea>
       <div class="inline-sol-actions">
-        <button class="btn-primary" style="font-size:0.82rem;padding:7px 14px" data-action="save-inline-solution" data-item-id="${item.id}">&#x2705; Save Solution</button>
-        ${isOpenStatus(item.status) && item.type === "challenge" ? `<button class="qa-btn qa-resolve" data-action="mark-solved-inline" data-item-id="${item.id}">&#x2705; Mark Solved</button>` : ""}
-        ${item.status !== "escalated" && isOpenStatus(item.status) ? `<button class="qa-btn qa-escalate" data-action="escalate-inline" data-item-id="${item.id}">&#x26A1; Escalate to Next Meeting</button>` : ""}
+        <button class="btn-primary" style="font-size:0.82rem;padding:7px 14px" data-action="save-inline-solution" data-item-id="${item.id}">Save Solution</button>
       </div>
-    </div>`
-    : `<div class="inline-sol">
-      <h4>&#x1F4DD; Solution</h4>
-      <p>${escapeHtml(solutionText)}</p>
-    </div>`;
-  const commentInputHTML = canManage
+    </section>`
+      : `<section class="detail-section inline-sol">
+      <h4>Solution</h4>
+      <p class="${hasSolution ? "detail-solution-text" : "detail-solution-empty"}">${escapeHtml(solutionText)}</p>
+    </section>`
+    : "";
+  const commentInputHTML = canComment
     ? `<div class="cmt-input-row">
         <input class="cmt-input" id="cmt-input-${item.id}" placeholder="Add a comment..." />
         <button class="btn-primary" style="font-size:0.82rem;padding:7px 14px" data-action="add-comment" data-item-id="${item.id}">Post</button>
       </div>`
-    : `<p class="dash-empty" style="text-align:left;padding:8px 0 0">Commenting is available for supervisors.</p>`;
+    : "";
+  const commentsSectionHTML = canComment
+    ? `<section class="detail-section inline-comments">
+        <h4>Comments</h4>
+        <div class="cmt-list" id="cmt-list-${item.id}">
+          ${(item.comments || []).map((c, index) => `<div class="cmt-item"><div class="cmt-head"><span class="cmt-author">${escapeHtml(c.author)}</span><span class="cmt-head-meta"><span class="cmt-date">${c.date}</span>${canManage ? `<button type="button" class="cmt-delete-btn" data-action="delete-comment" data-item-id="${item.id}" data-comment-index="${index}">Delete</button>` : ""}</span></div><p class="cmt-text">${escapeHtml(c.text)}</p></div>`).join("") || '<p class="dash-empty">No comments yet.</p>'}
+        </div>
+        ${commentInputHTML}
+      </section>`
+    : "";
 
   // V3 Benchmark: Activity Timeline
-  const timelineHTML = buildActivityTimeline(item);
+  const timelineHTML = canManage && isChallenge ? buildActivityTimeline(item) : "";
 
   // Known Error Tag
-  const rootCauseTag = item.solutionTemplate?.rootCause ? `<span class="known-error-tag">&#x1F3F7; Known Error: ${escapeHtml(item.solutionTemplate.rootCause)}</span>` : "";
+  const rootCauseTag = canManage && isChallenge && item.solutionTemplate?.rootCause ? `<span class="known-error-tag">Known Error: ${escapeHtml(item.solutionTemplate.rootCause)}</span>` : "";
+  const solutionTemplateMeta = canManage && isChallenge && item.solutionTemplate
+    ? `
+      <section class="detail-section solution-template">
+        <h4>Solution template</h4>
+        ${item.solutionTemplate.rootCause ? `<p><strong>Root cause:</strong> ${item.solutionTemplate.rootCause}</p>` : ""}
+        ${item.solutionTemplate.actionSteps ? `<p><strong>Action steps:</strong> ${item.solutionTemplate.actionSteps}</p>` : ""}
+        ${item.solutionTemplate.prevention ? `<p><strong>Prevention:</strong> ${item.solutionTemplate.prevention}</p>` : ""}
+        ${item.solutionTemplate.validatedBy ? `<p><strong>Validated by:</strong> ${item.solutionTemplate.validatedBy}</p>` : ""}
+        ${item.solutionTemplate.reusableTags ? `<p><strong>Tags:</strong> ${item.solutionTemplate.reusableTags}</p>` : ""}
+      </section>
+    `
+    : "";
+
+  const buildMetaGrid = (rows) => `
+    <div class="detail-kv-grid">
+      ${rows
+        .filter((row) => row.value !== undefined && row.value !== null && String(row.value).trim() !== "")
+        .map(
+          (row) => `
+            <div class="detail-kv-row">
+              <span class="detail-kv-label">${escapeHtml(row.label)}</span>
+              <span class="detail-kv-value">${escapeHtml(String(row.value))}</span>
+            </div>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+
+  const salesMetaHTML = buildMetaGrid([
+    { label: "Status", value: toLabel(item.status) },
+    { label: "Department", value: item.department },
+    { label: "Owner", value: ownerValue },
+    { label: "Due date", value: item.dueDate || "Not set" },
+    { label: "Meeting level", value: meetingLayerLabel(item.meetingLevel || "team_weekly").replace(/ Meeting.*/, "") },
+    { label: "Resolved", value: resolvedValue },
+  ]);
+
+  const supervisorMetaHTML = buildMetaGrid([
+    { label: "Department", value: item.department },
+    { label: "Created by", value: `${item.createdBy} (${item.createdAt})` },
+    { label: "Status", value: toLabel(item.status) },
+    { label: "Owner", value: ownerValue },
+    { label: "Due date", value: item.dueDate || "Not set" },
+    { label: "Meeting needed", value: meetingNeededValue },
+    { label: "Stakeholders", value: item.stakeholders.join(", ") || "None listed" },
+    { label: "External contact", value: externalEmailMeta },
+    { label: "Meeting gate", value: item.details?.meetingGate?.matchedItemId
+      ? `Matched ${item.details.meetingGate.matchedItemId} (${Math.round((item.details.meetingGate.similarity || 0) * 100)}%)`
+      : "No gate match" },
+  ]);
+  const supervisorLiteMetaHTML = buildMetaGrid([
+    { label: "Department", value: item.department },
+    { label: "Created by", value: `${item.createdBy} (${item.createdAt})` },
+    { label: "Status", value: toLabel(item.status) },
+    { label: "Owner", value: ownerValue },
+    { label: "Meeting level", value: item.meetingLevel ? meetingLayerLabel(item.meetingLevel).replace(/ Meeting.*/, "") : "Not set" },
+  ]);
+
+  const escalationDetailsGrid = canManage
+    ? buildMetaGrid([
+        { label: "Escalated meeting", value: item.details?.escalationTargetMeeting ? meetingLayerLabel(item.details.escalationTargetMeeting) : "Not escalated" },
+        { label: "Escalation date", value: item.details?.escalationMeetingDate || "-" },
+        { label: "Escalated to", value: item.details?.escalatedTo || "-" },
+        { label: "Reason", value: item.details?.escalationReason || "-" },
+      ])
+    : "";
+  const detailIdLabel = item.type === "challenge" ? `Challenge ${item.id}` : item.id;
 
   const detail = document.querySelector("#detail-content");
   detail.innerHTML = `
-    <h3>${item.id} &middot; ${item.title}</h3>
+    <div class="detail-primary-header">
+      <h3 class="detail-title">${escapeHtml(item.title)}</h3>
+      <p class="detail-id">${escapeHtml(detailIdLabel)}</p>
+    </div>
     <div class="item-meta">
       <span class="chip chip-type-${item.type}">${toLabel(item.type)}</span>
       <span class="chip chip-status">${toLabel(item.status)}</span>
@@ -4758,51 +4949,62 @@ function openDetailDrawer(itemId) {
       ${item.meetingLevel ? `<span class="chip chip-meeting-level">${meetingLayerLabel(item.meetingLevel).replace(/ Meeting.*/, "")}</span>` : ""}
       ${rootCauseTag}
     </div>
-    ${slaHTML}
-    ${quickActionsHTML}
-    ${statusWorkflowHTML}
-    <p>${item.description}</p>
-    <p><strong>Department:</strong> ${item.department}</p>
-    ${deptAssignMeta}
-    ${externalEmailMeta}
-    <p><strong>Created by:</strong> ${item.createdBy} (${item.createdAt})</p>
-    <p><strong>Due date:</strong> ${item.dueDate || "Not set"}</p>
-    <p><strong>Owner:</strong> ${getOwnerName(item) || "Unassigned"}</p>
-    ${meetingNeededMeta}
-    ${meetingGateMeta}
-    <p><strong>Stakeholders:</strong> ${item.stakeholders.join(", ") || "None listed"}</p>
-    ${escalationMeta}
-    ${escalationOwnerMeta}
-    ${escalationReasonMeta}
-    ${escalationSuggestionMeta}
-    ${recurringEscMeta}
-    ${solutionTemplateMeta}
-    ${resolvedMeta}
+    <section class="detail-section detail-sales-focus">
+      <h4>${item.type === "challenge" ? "Challenge" : "Case Summary"}</h4>
+      <p class="detail-lead">${escapeHtml(item.description)}</p>
+    </section>
 
     ${solutionEditorHTML}
-    ${solutionActionHTML}
 
-    <div class="inline-comments">
-      <h4>&#x1F4AC; Comments</h4>
-      <div class="cmt-list" id="cmt-list-${item.id}">
-        ${(item.comments || []).map(c => `<div class="cmt-item"><div class="cmt-head"><span class="cmt-author">${escapeHtml(c.author)}</span><span class="cmt-date">${c.date}</span></div><p class="cmt-text">${escapeHtml(c.text)}</p></div>`).join("") || '<p class="dash-empty">No comments yet.</p>'}
+    ${commentsSectionHTML}
+
+    ${isChallenge
+      ? `<section class="detail-section detail-quick-context">
+          <h4>${canManage ? "Case Details" : "Quick Context"}</h4>
+          ${canManage ? supervisorMetaHTML : salesMetaHTML}
+        </section>`
+      : canManage
+        ? `<section class="detail-section detail-quick-context">
+            <h4>Case Details</h4>
+            ${supervisorLiteMetaHTML}
+          </section>`
+        : ""
+    }
+
+    ${deptAssignMeta}
+
+    ${canManage && isChallenge ? `
+      <section class="detail-section detail-quick-context supervisor-extra-section">
+        <h4>Workflow & Escalation</h4>
+        ${quickActionsHTML}
+        ${statusWorkflowHTML}
+        ${escalationDetailsGrid}
+        ${recurringEscMeta}
+      </section>
+
+      ${solutionTemplateMeta}
+
+      <section class="detail-section detail-quick-context supervisor-extra-section">
+        <h4>Meeting Level Hierarchy</h4>
+        ${hierarchyHTML}
+      </section>
+
+      <section class="detail-section detail-quick-context supervisor-extra-section">
+        <h4>Activity Timeline</h4>
+        ${timelineHTML}
+      </section>
+
+      ${similarityExplorerHTML}
+
+      <div class="drawer-delete-zone">
+        <button type="button" class="drawer-delete-btn" data-action="delete-item" data-item-id="${item.id}">Delete this item</button>
       </div>
-      ${commentInputHTML}
-    </div>
-
-    <h4>Meeting Level Hierarchy</h4>
-    ${hierarchyHTML}
-    <h4>Activity Timeline</h4>
-    ${timelineHTML}
-    ${similarityExplorerHTML}
-    ${canManage ? `<div class="drawer-delete-zone">
-      <button type="button" class="drawer-delete-btn" data-action="delete-item" data-item-id="${item.id}">Delete this item</button>
-    </div>` : ""}
+    ` : ``}
   `;
-
   const drawer = document.querySelector("#detail-drawer");
   drawer.classList.add("is-open");
   drawer.setAttribute("aria-hidden", "false");
+  drawer.scrollTop = 0;
 }
 
 function closeDetailDrawer() {
@@ -4839,7 +5041,6 @@ function setLeftRailCollapsed(collapsed) {
 
 function applyRolePermissions() {
   const allowed = new Set(getAllowedScreensForRole());
-  const supervisor = isSupervisorView();
   const roleSelector = document.querySelector("#role-selector");
   if (roleSelector) {
     if (roleSelector.value !== activeRoleView) roleSelector.value = activeRoleView;
@@ -4861,13 +5062,6 @@ function applyRolePermissions() {
     button.disabled = !visible;
     button.tabIndex = visible ? 0 : -1;
   });
-
-  const note = document.querySelector("#role-permission-note");
-  if (note) {
-    note.textContent = supervisor
-      ? "Supervisor mode: full access and editing enabled."
-      : "Sales representative mode: dashboard + create + archive (read-only).";
-  }
 
   const activeScreen = document.querySelector(".screen.is-visible")?.id?.replace("screen-", "");
   if (activeScreen && !allowed.has(activeScreen)) {
@@ -5586,6 +5780,7 @@ function updateTypeFields() {
   document.querySelector("#challenge-fields").classList.toggle("is-hidden", type !== "challenge");
   document.querySelector("#contribution-fields").classList.toggle("is-hidden", type !== "contribution");
   document.querySelector("#celebration-fields").classList.toggle("is-hidden", type !== "celebration");
+  renderCreateDescriptionSuggestions();
 }
 
 function openEscalateModal(itemId, prefills = null) {
@@ -5711,6 +5906,13 @@ function handleMeetingAction(action, itemId) {
     item.updates.push({ type: "meeting_note", note: `Assigned to ${owner}.` });
     meetingLog.unshift(`${item.id}: Assigned to ${owner}${item.dueDate ? ` (due ${item.dueDate})` : ""}.`);
     showToast(`${item.id} assigned`);
+    addNotification({
+      type: "assign",
+      itemId: item.id,
+      title: `Assigned: ${item.id}`,
+      body: `"${item.title}" is assigned to ${owner}${item.dueDate ? ` (due ${item.dueDate})` : ""}.`,
+      department: item.department,
+    });
   }
 
   if (action === "escalate") {
@@ -5812,6 +6014,22 @@ function registerEvents() {
 
   document.querySelector("#new-item-form").addEventListener("submit", handleCreateItem);
   document.querySelector("#item-type").addEventListener("change", updateTypeFields);
+  const createDescriptionInput = document.querySelector("#create-description-input");
+  if (createDescriptionInput) {
+    createDescriptionInput.addEventListener("input", renderCreateDescriptionSuggestions);
+  }
+  const createTitleInput = document.querySelector('#new-item-form [name="title"]');
+  if (createTitleInput) {
+    createTitleInput.addEventListener("input", renderCreateDescriptionSuggestions);
+  }
+  const createSimilarCases = document.querySelector("#create-similar-cases");
+  if (createSimilarCases) {
+    createSimilarCases.addEventListener("click", (event) => {
+      const button = event.target.closest('[data-action="open-create-similar"][data-item-id]');
+      if (!button) return;
+      openDetailDrawer(button.dataset.itemId);
+    });
+  }
 
   const sendRecapButton = document.querySelector("#send-recap-email");
   if (sendRecapButton) sendRecapButton.addEventListener("click", handleSendRecapEmail);
@@ -5889,6 +6107,17 @@ function registerEvents() {
   const personalPanel = document.querySelector("#left-rail");
   if (personalPanel) {
     personalPanel.addEventListener("click", (event) => {
+      const readBtn = event.target.closest("[data-notif-read]");
+      if (readBtn) {
+        const notifId = String(readBtn.dataset.notifRead || "");
+        if (!notifId) return;
+        const notifs = loadNotifications().filter((n) => n.id !== notifId);
+        saveNotifications(notifs);
+        renderRailNotifications();
+        showNotificationBanner();
+        return;
+      }
+
       const focusButton = event.target.closest(".personal-focus-item[data-item-id]");
       if (focusButton) {
         openDetailDrawer(focusButton.dataset.itemId);
@@ -5896,6 +6125,11 @@ function registerEvents() {
       }
       const jumpButton = event.target.closest("[data-personal-target]");
       if (jumpButton) {
+        if (jumpButton.dataset.personalTarget === "notif-center") {
+          const notifSection = document.querySelector("#left-rail-notifications");
+          notifSection?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          return;
+        }
         openDashboardDropdown(jumpButton.dataset.personalTarget);
       }
     });
@@ -5956,7 +6190,7 @@ function registerEvents() {
   if (detailContent) {
     detailContent.addEventListener("click", (event) => {
       const supervisorOnlyControl = event.target.closest(
-        '[data-action="save-inline-solution"], [data-action="mark-solved-inline"], [data-action="escalate-inline"], [data-action="add-comment"], [data-action="delete-item"], [data-action="quick-escalate"], [data-action="ignore-recurring-esc"], [data-action="edit-solution"], [data-qa]'
+        '[data-action="mark-solved-inline"], [data-action="escalate-inline"], [data-action="delete-item"], [data-action="delete-comment"], [data-action="quick-escalate"], [data-action="ignore-recurring-esc"], [data-action="edit-solution"], [data-qa]'
       );
       if (supervisorOnlyControl && !requireSupervisorAccess("Edit actions")) return;
 
@@ -5966,6 +6200,10 @@ function registerEvents() {
         const itemId = saveBtn.dataset.itemId;
         const item = items.find(e => e.id === itemId);
         const textarea = document.querySelector("#inline-sol-text");
+        if (item && !canCollaborateOnItem(item)) {
+          showToast("Solution updates are not available for this item in sales view.");
+          return;
+        }
         if (item && textarea) {
           item.solution = textarea.value.trim();
           item.updates.push({ type: "solution_note", note: "Solution updated: " + truncate(item.solution, 60) });
@@ -6009,6 +6247,10 @@ function registerEvents() {
         const itemId = cmtBtn.dataset.itemId;
         const item = items.find(e => e.id === itemId);
         const input = document.querySelector("#cmt-input-" + itemId);
+        if (item && !canCommentOnItem(item)) {
+          showToast("Comments are not available for this item in sales view.");
+          return;
+        }
         if (item && input && input.value.trim()) {
           if (!item.comments) item.comments = [];
           item.comments.push({ author: _currentUser(), date: todayISO(), text: input.value.trim() });
@@ -6017,6 +6259,23 @@ function registerEvents() {
           openDetailDrawer(itemId);
           showToast("Comment added");
         }
+        return;
+      }
+      const deleteCommentBtn = event.target.closest('[data-action="delete-comment"][data-item-id][data-comment-index]');
+      if (deleteCommentBtn) {
+        const itemId = deleteCommentBtn.dataset.itemId;
+        const commentIndex = Number(deleteCommentBtn.dataset.commentIndex);
+        const item = items.find((entry) => entry.id === itemId);
+        if (!item || !Array.isArray(item.comments) || Number.isNaN(commentIndex)) return;
+        if (commentIndex < 0 || commentIndex >= item.comments.length) return;
+        const [removed] = item.comments.splice(commentIndex, 1);
+        item.updates.push({
+          type: "feedback",
+          note: `Comment removed by ${_currentUser()}${removed?.text ? ": " + truncate(removed.text, 60) : ""}`,
+        });
+        saveItems();
+        openDetailDrawer(itemId);
+        showToast("Comment deleted");
         return;
       }
 
@@ -6038,7 +6297,13 @@ function registerEvents() {
 
       const ignoreBtn = event.target.closest('button[data-action="ignore-recurring-esc"][data-item-id]');
       if (ignoreBtn) {
-        showToast("Escalation suggestion ignored.");
+        const item = items.find((entry) => entry.id === ignoreBtn.dataset.itemId);
+        if (!item) return;
+        item.details = item.details || {};
+        item.details.recurringEscSuggestionIgnored = true;
+        saveItems();
+        openDetailDrawer(item.id);
+        showToast("Escalation suggestion hidden.");
         return;
       }
 
@@ -6067,6 +6332,18 @@ function registerEvents() {
   }
 
   document.querySelector("#close-drawer").addEventListener("click", closeDetailDrawer);
+  document.addEventListener(
+    "mousedown",
+    (event) => {
+      const drawer = document.querySelector("#detail-drawer");
+      if (!drawer || !drawer.classList.contains("is-open")) return;
+      if (event.target.closest("#detail-drawer")) return;
+      const activeModal = document.querySelector(".modal.is-open");
+      if (activeModal && activeModal.contains(event.target)) return;
+      closeDetailDrawer();
+    },
+    true
+  );
 
   // Feature 1: Meeting Recommendation Modal
   const meetingRecModal = document.querySelector("#meeting-rec-modal");
