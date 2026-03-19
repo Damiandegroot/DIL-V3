@@ -94,7 +94,7 @@ function canCommentOnItem(item) {
 function getAllowedScreensForRole() {
   return isSupervisorView()
     ? ["dashboard", "meeting", "create", "archive", "analytics", "notifications"]
-    : ["dashboard", "create", "archive"];
+    : ["dashboard", "meeting", "create", "archive"];
 }
 
 // Tracks meetings avoided by knowledge reuse (session counter, persisted)
