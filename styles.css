@@ -2823,17 +2823,18 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 76px;
-  border: 1px solid rgba(17, 17, 17, 0.14);
+  min-width: 46px;
+  height: 30px;
+  border: 1px solid rgba(244, 0, 9, 0.28);
   border-radius: 999px;
-  background: #f7f7f8;
-  color: #4b5563;
-  font-size: 0.62rem;
+  background: #fff;
+  color: #b30009;
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   line-height: 1;
-  padding: 4px 7px;
+  padding: 0 10px;
 }
 
 .admin-notif-copy {
@@ -2851,47 +2852,6 @@ textarea {
   font-size: 0.8rem;
   color: var(--ink-soft);
   line-height: 1.24;
-}
-
-.admin-notif-icon--info {
-  border-color: rgba(59, 130, 246, 0.25);
-  background: rgba(59, 130, 246, 0.08);
-  color: #2f5da8;
-}
-
-.admin-notif-icon--assign {
-  border-color: rgba(17, 17, 17, 0.17);
-  background: #f5f6f8;
-  color: #475569;
-}
-
-.admin-notif-icon--escalate {
-  border-color: rgba(200, 95, 0, 0.26);
-  background: rgba(200, 95, 0, 0.08);
-  color: #a34e00;
-}
-
-.admin-notif-icon--resolve {
-  border-color: rgba(22, 163, 74, 0.24);
-  background: rgba(22, 163, 74, 0.08);
-  color: #1a7f4a;
-}
-
-.admin-notif-icon--overdue {
-  border-color: rgba(220, 38, 38, 0.24);
-  background: rgba(220, 38, 38, 0.08);
-  color: #b42318;
-}
-
-.admin-notif-icon--like {
-  border-color: rgba(244, 0, 9, 0.28);
-  background: #fff;
-  color: #b30009;
-  min-width: 34px;
-  font-size: 0.84rem;
-  letter-spacing: 0;
-  text-transform: none;
-  padding: 4px 8px;
 }
 
 .admin-notif-actions {

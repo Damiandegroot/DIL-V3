@@ -7244,17 +7244,6 @@ function notificationIconForType(type) {
   }[type] || "📌";
 }
 
-function notificationTypeClass(type) {
-  return {
-    assign: "assign",
-    escalate: "escalate",
-    resolve: "resolve",
-    overdue: "overdue",
-    like: "like",
-    info: "info",
-  }[type] || "info";
-}
-
 function renderSettings() {
   const container = document.querySelector("#screen-settings");
   if (!container) return;
@@ -7289,11 +7278,11 @@ function renderSettings() {
     ? meetingLog.slice(0, 24).map((entry) => `<div class="admin-log-item">${escapeHtml(entry)}</div>`).join("")
     : '<p class="dash-empty">No audit entries yet in this session.</p>';
 
-  const notifRows = notifications.length
+      const notifRows = notifications.length
     ? notifications.slice(0, 28).map((notif) => `
         <div class="admin-notif-item ${notif.read ? "" : "is-unread"}" data-notif-id="${notif.id}">
           <div class="admin-notif-main">
-            <span class="admin-notif-icon admin-notif-icon--${notificationTypeClass(notif.type)}">${notificationIconForType(notif.type)}</span>
+            <span class="admin-notif-icon">${notificationIconForType(notif.type)}</span>
             <div class="admin-notif-copy">
               <p class="admin-notif-title">${escapeHtml(notif.title)}</p>
               <p class="admin-notif-body">${escapeHtml(truncate(notif.body, 120))}</p>
