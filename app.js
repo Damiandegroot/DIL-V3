@@ -7235,13 +7235,13 @@ function populateDeptFilters() {
 
 function notificationIconForType(type) {
   return {
-    assign: "Assignment",
-    escalate: "Escalation",
-    resolve: "Resolution",
-    overdue: "Overdue",
+    assign: "📌",
+    escalate: "📌",
+    resolve: "📌",
+    overdue: "📌",
     like: "📌",
-    info: "Info",
-  }[type] || "Info";
+    info: "📌",
+  }[type] || "📌";
 }
 
 function notificationTypeClass(type) {
