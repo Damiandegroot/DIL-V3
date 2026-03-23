@@ -11,20 +11,28 @@
 <aside class="left-rail" id="left-rail" aria-expanded="true">
   <div class="left-rail-head">
     <div class="left-rail-brand">
-      <div class="rail-brand-copy"><strong>in-SYNCC dashboard</strong></div>
+      <div class="rail-brand-copy">
+        <strong>in-SYNCC dashboard</strong>
+      </div>
     </div>
     <button class="left-rail-toggle" id="left-rail-toggle" type="button" aria-label="Collapse sidebar">‹</button>
   </div>
   <div class="left-rail-profile">
     <div class="left-rail-avatar" id="personal-avatar">NE</div>
     <div class="left-rail-user">
-      <strong id="personal-name">Damian de Groot</strong>
+      <strong id="personal-name">Nadia van der Berg</strong>
       <span id="personal-role">Sales Representative</span>
       <span id="personal-dept">Cross-functional</span>
       <div class="left-rail-context-filters">
-        <div class="left-rail-role-switch">
-          <label for="role-selector">View as</label>
-          <select id="role-selector" class="left-rail-role-select">
+        <!-- Role toggle replaces the old View As select -->
+        <div class="left-rail-role-toggle-wrap">
+          <span class="left-rail-role-toggle-label">View as</span>
+          <div class="role-toggle" id="role-toggle">
+            <button class="role-toggle-btn is-active" data-role="sales_rep" type="button">Sales Rep</button>
+            <button class="role-toggle-btn" data-role="supervisor" type="button">Supervisor</button>
+          </div>
+          <!-- Hidden select kept for JS compatibility -->
+          <select id="role-selector" style="display:none">
             <option value="sales_rep">Sales Representative</option>
             <option value="supervisor">Supervisor</option>
           </select>
@@ -59,18 +67,23 @@
     <button class="left-rail-nav-btn" type="button" data-rail-screen="create"><span class="rail-icon">N</span><span class="rail-text">New Item</span></button>
     <button class="left-rail-nav-btn" type="button" data-rail-screen="archive"><span class="rail-icon">A</span><span class="rail-text">Archive &amp; Assistant</span></button>
     <button class="left-rail-nav-btn" type="button" data-rail-screen="analytics"><span class="rail-icon">#</span><span class="rail-text">Analytics</span></button>
-    <button class="left-rail-nav-btn" type="button" data-rail-screen="notifications"><span class="rail-icon">!</span><span class="rail-text">Notifications</span></button>
+    <button class="left-rail-nav-btn" type="button" data-rail-screen="settings"><span class="rail-icon">S</span><span class="rail-text" id="settings-nav-label">Settings</span></button>
   </nav>
-  <div class="left-rail-section">
-    <div class="left-rail-section-head"><h4>My Focus</h4><button type="button" class="left-rail-link-btn" data-personal-target="my-focus">Open</button></div>
-    <div class="personal-focus-list" id="personal-focus-list"></div>
+  <div class="left-rail-section left-rail-collapsible" id="lr-section-focus">
+    <div class="left-rail-section-head left-rail-section-toggle" data-lr-toggle="lr-section-focus">
+      <h4>My Focus</h4>
+      <span class="lr-toggle-chevron">▾</span>
+      <button type="button" class="left-rail-link-btn" data-personal-target="my-focus">Open</button>
+    </div>
+    <div class="left-rail-collapsible-body" id="personal-focus-list"></div>
   </div>
-  <div class="left-rail-section" id="left-rail-notifications">
-    <div class="left-rail-section-head">
+  <div class="left-rail-section left-rail-collapsible" id="lr-section-notifs">
+    <div class="left-rail-section-head left-rail-section-toggle" data-lr-toggle="lr-section-notifs">
       <h4>Notifications</h4>
+      <span class="lr-toggle-chevron">▾</span>
       <span class="left-rail-notif-badge" id="left-rail-notif-badge"></span>
     </div>
-    <div class="left-rail-notif-list" id="left-rail-notification-list"></div>
+    <div class="left-rail-collapsible-body" id="left-rail-notification-list"></div>
   </div>
   <div class="left-rail-section">
     <h4>Quick Jump</h4>
@@ -89,9 +102,15 @@
     <h1>Meeting Challenge Dashboard</h1>
     <p class="hero-sub">Manage challenges across departments and meeting levels.</p>
   </div>
+  <div class="hero-onboarding-corner">
+    <span class="hero-onboarding-label">Onboarding Info</span>
+    <button class="hero-onboarding-icon" id="hero-onboarding-btn" type="button" aria-label="Open onboarding guide" title="Open onboarding guide">
+      <span class="hero-ob-icon-mark">?</span>
+    </button>
+  </div>
   <div class="hero-metrics">
-    <div class="metric-tile"><span id="metric-open">0</span><small>Open items</small></div>
-    <div class="metric-tile"><span id="metric-overdue">0</span><small>Overdue</small></div>
+    <div class="metric-tile" data-metric-key="open"><span id="metric-open">0</span><small>Open items</small></div>
+    <div class="metric-tile" data-metric-key="overdue"><span id="metric-overdue">0</span><small>Overdue</small></div>
   </div>
 </section>
 <div class="notification-banner" id="notification-banner" style="display:none"><div class="notification-content"><span class="notification-icon">&#x1F514;</span><span class="notification-text" id="notification-text"></span><button class="notification-dismiss" id="notification-dismiss">Dismiss</button></div></div>
@@ -117,13 +136,13 @@
     <div class="panel"><div class="panel-header"><h2>Meeting Recap</h2><p>Decisions and actions captured during this session.</p></div><div class="recap-actions"><input id="recap-email-to" type="text" placeholder="Recipients (comma separated or auto-fill)"/><button class="mini-btn" id="auto-fill-recipients">Auto-fill</button><button class="btn-primary" id="send-recap-email">Send Recap Email</button></div><textarea id="recap-draft" rows="8"></textarea></div>
   </section>
   <section id="screen-create" class="screen">
-    <div class="panel"><div class="panel-header"><h2>Add New Item</h2><p>Log a challenge, contribution, or celebration.</p></div>
+    <div class="panel"><div class="panel-header"><h2><span class="create-title-accent">Add</span> New Item</h2><p>Log a challenge, contribution, or celebration.</p></div>
     <form id="new-item-form" class="form-grid">
       <label>Type<select name="itemType" id="item-type"><option value="challenge">Challenge</option><option value="contribution">Contribution</option><option value="celebration">Celebration</option></select></label>
       <label>Title<input name="title" required placeholder="Clear, concise title"/></label>
       <label class="full-width">Description<textarea id="create-description-input" name="description" rows="3" required placeholder="Provide enough context (min 120 chars for challenges)"></textarea><div id="create-similar-cases" class="create-similar-dropdown is-hidden" aria-live="polite"></div></label>
       <label>Department<select name="department" id="create-department"><option value="Jumbo &amp; Discounters">Jumbo &amp; Discounters</option><option value="Field Sales North">Field Sales North</option><option value="Field Sales South">Field Sales South</option><option value="Key Accounts Supermarkets">Key Accounts Supermarkets</option><option value="Convenience &amp; Petrol">Convenience &amp; Petrol</option><option value="E-commerce Sales">E-commerce Sales</option><option value="Wholesalers">Wholesalers</option><option value="Sales Operations">Sales Operations</option><option value="Trade Marketing">Trade Marketing</option><option value="Revenue Growth Management">Revenue Growth Management</option></select></label>
-      <label>Your Name<input name="createdBy" value="Damian de Groot" required/></label>
+      <label>Your Name<input name="createdBy" value="Nadia van der Berg" required/></label>
       <label>Assign to Support Department<select name="assignToDept" id="assign-to-dept"><option value="">-- No assignment yet --</option><option value="Legal">Legal</option><option value="Finance">Finance</option><option value="Operations">Operations</option><option value="IT">IT</option><option value="Supply Chain">Supply Chain</option><option value="HR">HR</option><option value="Field Sales North">Field Sales North</option><option value="Field Sales South">Field Sales South</option><option value="Key Accounts Supermarkets">Key Accounts</option><option value="Trade Marketing">Trade Marketing</option></select></label>
       <label>Involve External Person (email)<input name="externalEmail" type="email" placeholder="Optional"/></label>
       <label>Priority<select name="priority"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
@@ -150,9 +169,7 @@
     </div>
   </section>
   <section id="screen-analytics" class="screen"></section>
-  <section id="screen-notifications" class="screen">
-    <div class="panel"><div class="panel-header"><h2>Notification Preferences</h2><p>Notifications now appear in the left sidebar.</p></div><div class="notification-prefs"><label class="pref-row"><input type="checkbox" id="pref-email-notify" checked/><span>Email notifications for new assignments</span></label><label class="pref-row"><input type="checkbox" id="pref-escalation-notify" checked/><span>Escalation alerts</span></label><label class="pref-row"><input type="checkbox" id="pref-overdue-notify" checked/><span>Overdue challenge reminders</span></label><label class="pref-row"><input type="checkbox" id="pref-resolution-notify" checked/><span>Resolution confirmations</span></label></div></div>
-  </section>
+  <section id="screen-settings" class="screen"></section>
 </main>
 </div>
 <aside class="detail-drawer" id="detail-drawer" aria-hidden="true">
@@ -165,7 +182,98 @@
 <div class="modal" id="escalate-modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Escalate Challenge</h3><button class="drawer-close" id="close-escalate-modal">&#x2715;</button></div><p class="modal-sub">Move this challenge to a higher meeting level.</p><form id="escalate-form" class="form-grid modal-form"><input type="hidden" id="escalate-item-id" name="itemId"/><label>Target meeting<select id="escalate-target-meeting" name="targetMeeting"><option value="team_weekly">Senior Manager (09:45)</option><option value="regional_red">Associate Director</option><option value="national_red">Director (11:00)</option><option value="leadership_sync">Leadership Team (15:00)</option></select></label><label>Escalation level<select id="escalate-level" name="escalationLevel"><option value="team_lead">Team Lead</option><option value="senior_leadership">Senior Leadership</option></select></label><label>Target meeting date<input id="escalate-meeting-date" name="nextMeetingDate" type="date"/></label><label>Escalated to (owner)<input id="escalate-owner" name="escalatedTo" placeholder="Person or department"/></label><label class="full-width">Escalation reason<textarea id="escalate-reason" name="escalationReason" rows="2" placeholder="Why? (min 12 chars)"></textarea></label><div class="form-actions full-width modal-actions"><button type="button" class="mini-btn" id="cancel-escalate">Cancel</button><button type="submit" class="btn-primary">Escalate</button></div></form></div></div>
 <div class="modal" id="meeting-rec-modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Meeting Recommendation</h3><button class="drawer-close" id="rec-close-btn">&#x2715;</button></div><p class="modal-sub">A similar resolved case was found. You can reuse the solution.</p><input type="hidden" id="rec-item-id"/><input type="hidden" id="rec-matched-id"/><div id="rec-body"></div><div class="form-actions modal-actions" style="margin-top:12px"><button type="button" class="mini-btn" id="rec-skip-btn">Skip -- Proceed to meeting</button><button type="button" class="btn-primary" id="rec-apply-btn">Apply solution and skip meeting</button></div></div></div>
 <div class="modal" id="recurring-alert-modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Recurring Challenge Detected</h3><button class="drawer-close" id="recurring-close-btn">&#x2715;</button></div><p class="modal-sub">This challenge pattern has appeared multiple times. Consider escalating.</p><input type="hidden" id="recurring-item-id"/><div id="recurring-body"></div><div class="form-actions modal-actions" style="margin-top:12px"><button type="button" class="mini-btn" id="recurring-close-btn-2">Keep at current level</button><button type="button" class="btn-primary" id="recurring-escalate-btn">Escalate to higher meeting</button></div></div></div>
+<div class="modal" id="resolve-wizard-modal" aria-hidden="true">
+  <div class="modal-card resolve-wizard-card">
+    <div class="modal-head">
+      <h3 id="resolve-wizard-title">Resolve Challenge</h3>
+      <button class="drawer-close" id="close-resolve-wizard">&#x2715;</button>
+    </div>
+    <div class="resolve-wizard-progress">
+      <div class="rw-step-dots" id="rw-step-dots"></div>
+      <span class="rw-step-label" id="rw-step-label">Step 1 of 5</span>
+    </div>
+    <div class="resolve-wizard-body" id="rw-body"></div>
+    <div class="resolve-wizard-footer">
+      <button type="button" class="mini-btn" id="rw-back">← Back</button>
+      <button type="button" class="btn-primary" id="rw-next">Next →</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
+
+<!-- Onboarding Popup -->
+<div class="ob-overlay" id="ob-overlay" aria-hidden="true">
+  <div class="ob-modal" id="ob-modal" role="dialog" aria-labelledby="ob-title">
+    <button class="ob-close" id="ob-close" aria-label="Close">&#x2715;</button>
+    <div class="ob-slides" id="ob-slides">
+
+      <div class="ob-slide is-active" data-slide="0">
+        <div class="ob-slide-icon">📋</div>
+        <div class="ob-slide-tag">Welcome</div>
+        <h2 class="ob-slide-title" id="ob-title">RED in-SYNCC Dashboard</h2>
+        <p class="ob-slide-body">A centralised system to capture, route and resolve cross-functional challenges — so your team spends less time in meetings and more time acting on solutions.</p>
+        <div class="ob-slide-pill">Turn meeting friction into knowledge</div>
+      </div>
+
+      <div class="ob-slide" data-slide="1">
+        <div class="ob-slide-icon">🗂️</div>
+        <div class="ob-slide-tag">Feature 1</div>
+        <h2 class="ob-slide-title">Dashboard</h2>
+        <p class="ob-slide-body">See all open challenges, celebrations and contributions in one view. Filter by department or meeting level. Your personal focus list shows only the items that need your attention right now.</p>
+        <div class="ob-slide-pill">One view for the full picture</div>
+      </div>
+
+      <div class="ob-slide" data-slide="2">
+        <div class="ob-slide-icon">📅</div>
+        <div class="ob-slide-tag">Feature 2</div>
+        <h2 class="ob-slide-title">Meeting Mode</h2>
+        <p class="ob-slide-body">Run your weekly RED meeting directly from the app. The agenda is pre-built from open items. Assign, escalate or resolve cases in real time, then send a recap email to all stakeholders in one click.</p>
+        <div class="ob-slide-pill">Structured meetings, every time</div>
+      </div>
+
+      <div class="ob-slide" data-slide="3">
+        <div class="ob-slide-icon">🔁</div>
+        <div class="ob-slide-tag">Feature 3</div>
+        <h2 class="ob-slide-title">Knowledge Reuse &amp; Meeting Gate</h2>
+        <p class="ob-slide-body">When you create a new challenge, the system checks the archive for similar resolved cases. If a strong match is found, you can apply the existing solution instantly — skipping the meeting entirely and saving the team's time.</p>
+        <div class="ob-slide-pill">Skip meetings with existing knowledge</div>
+      </div>
+
+      <div class="ob-slide" data-slide="4">
+        <div class="ob-slide-icon">🗄️</div>
+        <div class="ob-slide-tag">Feature 4</div>
+        <h2 class="ob-slide-title">Archive &amp; Smart Assistant</h2>
+        <p class="ob-slide-body">Every resolved case becomes institutional knowledge. Search the full archive or ask the built-in assistant in natural language — it surfaces the most relevant past cases and solutions without leaving the app.</p>
+        <div class="ob-slide-pill">Your team's memory, always available</div>
+      </div>
+
+      <div class="ob-slide" data-slide="5">
+        <div class="ob-slide-icon">📊</div>
+        <div class="ob-slide-tag">Feature 5 · Supervisor only</div>
+        <h2 class="ob-slide-title">Analytics Dashboard</h2>
+        <p class="ob-slide-body">Supervisors can measure the system's real impact: meetings avoided, man-hours saved, resolution time with vs. without knowledge reuse, escalation avoidance, and more — all traceable to individual cases.</p>
+        <div class="ob-slide-pill">Prove efficiency with real numbers</div>
+      </div>
+
+      <div class="ob-slide" data-slide="6">
+        <div class="ob-slide-icon">👥</div>
+        <div class="ob-slide-tag">Views</div>
+        <h2 class="ob-slide-title">Two Role Views</h2>
+        <p class="ob-slide-body">Switch between <strong>Sales Representative</strong> (focused task view — create, track, comment) and <strong>Supervisor</strong> (full access — assign, escalate, resolve, analytics). Use the toggle at the top of the sidebar.</p>
+        <div class="ob-slide-pill">Right information for every role</div>
+      </div>
+
+    </div>
+    <div class="ob-footer">
+      <div class="ob-dots" id="ob-dots"></div>
+      <div class="ob-nav">
+        <button class="ob-btn-prev" id="ob-prev" type="button">← Back</button>
+        <button class="ob-btn-next" id="ob-next" type="button">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>

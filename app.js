@@ -1,6 +1,6 @@
 const STORAGE_KEY = "red-sync-v1-items";
 const STORAGE_DATASET_VERSION_KEY = "red-sync-v1-dataset-version";
-const CURRENT_DATASET_VERSION = "real-data-v2";
+const CURRENT_DATASET_VERSION = "real-data-v4";
 const MEETING_LINK_STORAGE_KEY = "red-sync-v1-meeting-link";
 const DEFAULT_MEETING_LINK = "";
 const MEETING_GATE_SIMILARITY_THRESHOLD = 0.23;
@@ -15,6 +15,15 @@ const RECURRING_MIN_COUNT = 3;            // Feature 7: minimum recurrences
 const LEFT_RAIL_COLLAPSE_KEY = "red-sync-v2-left-rail-collapsed";
 const meetingLog = [];
 const assistantThread = [];
+
+// ═══ Analytics: Meeting Cost Model (for man-hours / meetings avoided KPI) ═
+const MEETING_COST_MODEL = {
+  team_weekly:     { avgAttendees: 3, durationMin: 45, label: "Senior Manager" },
+  regional_red:    { avgAttendees: 5, durationMin: 45, label: "Assoc. Director" },
+  national_red:    { avgAttendees: 7, durationMin: 60, label: "Director" },
+  leadership_sync: { avgAttendees: 8, durationMin: 60, label: "Leadership" },
+};
+const MEETING_PREP_MULTIPLIER = 1.5; // prep + follow-up overhead factor
 
 // ═══ V2: Department Email Mapping (Tutor Feedback §2, §3) ════════════════
 const DEPARTMENT_EMAILS = {
@@ -93,7 +102,7 @@ function canCommentOnItem(item) {
 
 function getAllowedScreensForRole() {
   return isSupervisorView()
-    ? ["dashboard", "meeting", "create", "archive", "analytics", "notifications"]
+    ? ["dashboard", "meeting", "create", "archive", "analytics", "settings"]
     : ["dashboard", "meeting", "create", "archive"];
 }
 
@@ -2688,6 +2697,349 @@ const initialItems = [
     details: { milestoneType: "Promo effectiveness", audienceNote: "Field Sales North" },
     updates: [{ type: "feedback", note: "Owner assigned, tracking weekly progress. (Tom Bakker, 2026-05-18)" }, { type: "solution_note", note: "Solution: Meeting agenda template enforced; maximum eight attendees with pre-read requirem..." }],
   },
+  // ── Resolution Time benchmark items (knowledge reuse = fast resolution) ──
+  {
+    id: "HJD00101",
+    type: "challenge",
+    title: "Pricing accrual error causing double invoicing at key account",
+    description: "A pricing accrual misalignment caused two retailers to receive duplicate invoices. Finance and Sales Operations flagged the discrepancy.",
+    department: "Key Accounts Supermarkets",
+    assignedToDept: "Finance",
+    meetingLevel: "regional_red",
+    externalEmail: "",
+    createdBy: "Mila Janssen",
+    createdAt: "2026-02-10",
+    weekStart: "2026-02-09",
+    status: "resolved",
+    meetingNeeded: false,
+    priority: "high",
+    dueDate: "2026-02-17",
+    resolvedBy: "Laura de Vries",
+    resolvedAt: "2026-02-13",
+    solution: "Applied standard accrual correction template from HJD00022. Finance reversed duplicate entries within 24h.",
+    solutionTemplate: { rootCause: "pricing" },
+    assignedTo: "Laura de Vries",
+    stakeholders: ["Laura de Vries", "Mark Jansen"],
+    details: { isRecurring: false, knowledgeReused: true, knowledgeReuseSource: "HJD00022", knowledgeReuseTimestamp: "2026-02-10T09:15:00.000Z", meetingGate: { matchedItemId: "HJD00022", similarity: 0.78, appliedAt: "2026-02-10" } },
+    updates: [{ type: "meeting_note", note: "Knowledge reuse applied from HJD00022. Meeting skipped. Assigned to Laura de Vries." }, { type: "solution_note", note: "Solution: Applied standard accrual correction template." }],
+  },
+  {
+    id: "HJD00102",
+    type: "challenge",
+    title: "Out-of-stock on energy multipack in convenience cluster",
+    description: "Five convenience stores reported zero stock on 4-pack energy cans over a long weekend. Replenishment cycle did not trigger correctly.",
+    department: "Convenience & Petrol",
+    assignedToDept: "Supply Chain",
+    meetingLevel: "team_weekly",
+    externalEmail: "",
+    createdBy: "Jonas Smit",
+    createdAt: "2026-02-18",
+    weekStart: "2026-02-16",
+    status: "resolved",
+    meetingNeeded: false,
+    priority: "high",
+    dueDate: "2026-02-25",
+    resolvedBy: "Supply Planning",
+    resolvedAt: "2026-02-21",
+    solution: "Reused replenishment buffer solution from HJD00003. Min-max thresholds adjusted for weekend demand peaks.",
+    solutionTemplate: { rootCause: "stock" },
+    assignedTo: "Supply Planning",
+    stakeholders: ["Supply Planning"],
+    details: { isRecurring: false, knowledgeReused: true, knowledgeReuseSource: "HJD00003", knowledgeReuseTimestamp: "2026-02-18T10:30:00.000Z", meetingGate: { matchedItemId: "HJD00003", similarity: 0.81, appliedAt: "2026-02-18" } },
+    updates: [{ type: "meeting_note", note: "Knowledge reuse applied from HJD00003. Meeting skipped." }, { type: "solution_note", note: "Solution: Replenishment buffer adjusted for weekend peaks." }],
+  },
+  {
+    id: "HJD00103",
+    type: "challenge",
+    title: "EDI feed failure causing order gaps for e-commerce partner",
+    description: "EDI integration with a major e-commerce platform dropped orders for 48 hours due to schema mismatch after a platform update.",
+    department: "E-commerce Sales",
+    assignedToDept: "IT",
+    meetingLevel: "regional_red",
+    externalEmail: "",
+    createdBy: "Sophie van Dijk",
+    createdAt: "2026-03-03",
+    weekStart: "2026-03-02",
+    status: "resolved",
+    meetingNeeded: false,
+    priority: "high",
+    dueDate: "2026-03-10",
+    resolvedBy: "IT Support",
+    resolvedAt: "2026-03-06",
+    solution: "Reapplied EDI schema mapping fix from previous incident HJD00047. IT patched connector within 4h.",
+    solutionTemplate: { rootCause: "system" },
+    assignedTo: "IT Support",
+    stakeholders: ["IT Support", "Sophie van Dijk"],
+    details: { isRecurring: false, knowledgeReused: true, knowledgeReuseSource: "HJD00047", knowledgeReuseTimestamp: "2026-03-03T08:00:00.000Z", meetingGate: { matchedItemId: "HJD00047", similarity: 0.74, appliedAt: "2026-03-03" } },
+    updates: [{ type: "meeting_note", note: "Knowledge reuse applied from HJD00047. Meeting skipped." }, { type: "solution_note", note: "Solution: EDI schema mapping corrected." }],
+  },
+  {
+    id: "HJD00104",
+    type: "challenge",
+    title: "Delivery route disruption causing missed SLA at northern depot",
+    description: "Road closures rerouted three delivery vehicles, causing 14 stores to miss their SLA window by more than 4 hours.",
+    department: "Field Sales North",
+    assignedToDept: "Operations",
+    meetingLevel: "national_red",
+    externalEmail: "",
+    createdBy: "Alex Vermeer",
+    createdAt: "2026-03-10",
+    weekStart: "2026-03-09",
+    status: "resolved",
+    meetingNeeded: true,
+    priority: "high",
+    dueDate: "2026-03-17",
+    resolvedBy: "Tom Bakker",
+    resolvedAt: "2026-03-24",
+    solution: "Escalated to Director level. New depot contingency routing protocol agreed in meeting. Took 3 meetings to align all stakeholders.",
+    solutionTemplate: { rootCause: "logistics" },
+    assignedTo: "Tom Bakker",
+    stakeholders: ["Tom Bakker", "Regional Sales Lead"],
+    details: { isRecurring: true, escalationLevel: "senior_leadership" },
+    updates: [{ type: "feedback", note: "Under investigation. Multiple stakeholders needed. (Alex Vermeer, 2026-03-12)" }, { type: "feedback", note: "Second meeting scheduled. (Tom Bakker, 2026-03-17)" }, { type: "solution_note", note: "Solution: Contingency routing protocol established after Director meeting." }],
+  },
+  {
+    id: "HJD00105",
+    type: "challenge",
+    title: "Compliance gap in secondary display execution across discounters",
+    description: "Audit revealed that 38% of secondary display locations were not correctly activated in the discounter cluster due to unclear POS instructions.",
+    department: "Trade Marketing",
+    assignedToDept: "Operations",
+    meetingLevel: "regional_red",
+    externalEmail: "",
+    createdBy: "Emma Peters",
+    createdAt: "2026-03-15",
+    weekStart: "2026-03-14",
+    status: "resolved",
+    meetingNeeded: true,
+    priority: "medium",
+    dueDate: "2026-03-29",
+    resolvedBy: "Trade Marketing",
+    resolvedAt: "2026-04-01",
+    solution: "Cross-functional meeting with field and trade marketing to rewrite POS briefing materials. New one-pager distributed.",
+    solutionTemplate: { rootCause: "compliance" },
+    assignedTo: "Trade Marketing",
+    stakeholders: ["Trade Marketing", "Field Sales North"],
+    details: { isRecurring: false },
+    updates: [{ type: "feedback", note: "Root cause confirmed: briefing materials unclear. (Emma Peters, 2026-03-18)" }, { type: "feedback", note: "Cross-functional meeting held. Materials rewritten. (Trade Marketing, 2026-03-25)" }, { type: "solution_note", note: "Solution: POS briefing materials revised and distributed." }],
+  },
+  {
+    id: "HJD00106",
+    type: "challenge",
+    title: "Promo accrual mismatch on summer campaign — wholesaler segment",
+    description: "Three wholesaler accounts flagged incorrect promotional accruals for the summer campaign, leading to disputed credit notes totalling €14k.",
+    department: "Wholesalers",
+    assignedToDept: "Finance",
+    meetingLevel: "regional_red",
+    externalEmail: "",
+    createdBy: "Lars de Jong",
+    createdAt: "2026-04-07",
+    weekStart: "2026-04-06",
+    status: "resolved",
+    meetingNeeded: true,
+    priority: "high",
+    dueDate: "2026-04-14",
+    resolvedBy: "Finance",
+    resolvedAt: "2026-04-22",
+    solution: "Finance convened review meeting with Sales Operations. Accrual methodology recalibrated. Credit notes reissued after two rounds of alignment.",
+    solutionTemplate: { rootCause: "pricing" },
+    assignedTo: "Finance",
+    stakeholders: ["Finance", "Lars de Jong", "Sales Operations"],
+    details: { isRecurring: false },
+    updates: [{ type: "feedback", note: "Finance reviewing accrual logic. (Lars de Jong, 2026-04-09)" }, { type: "feedback", note: "Second review needed — wholesaler disputed figures again. (Finance, 2026-04-16)" }, { type: "solution_note", note: "Solution: Accrual methodology corrected and credit notes reissued." }],
+  },
+  {
+    id: "HJD00107",
+    type: "challenge",
+    title: "Master data error causing wrong shelf price display at supermarket",
+    description: "A master data update pushed an incorrect price for a 1.5L SKU to POS systems across 22 supermarket locations, causing customer complaints.",
+    department: "Key Accounts Supermarkets",
+    assignedToDept: "IT",
+    meetingLevel: "national_red",
+    externalEmail: "",
+    createdBy: "Mila Janssen",
+    createdAt: "2026-04-14",
+    weekStart: "2026-04-13",
+    status: "resolved",
+    meetingNeeded: false,
+    priority: "high",
+    dueDate: "2026-04-18",
+    resolvedBy: "IT Support",
+    resolvedAt: "2026-04-16",
+    solution: "Reapplied master data correction protocol from HJD00031. IT pushed corrected price file within 2h of ticket.",
+    solutionTemplate: { rootCause: "data" },
+    assignedTo: "IT Support",
+    stakeholders: ["IT Support", "Mila Janssen"],
+    details: { isRecurring: false, knowledgeReused: true, knowledgeReuseSource: "HJD00031", knowledgeReuseTimestamp: "2026-04-14T11:00:00.000Z", meetingGate: { matchedItemId: "HJD00031", similarity: 0.82, appliedAt: "2026-04-14" } },
+    updates: [{ type: "meeting_note", note: "Knowledge reuse applied from HJD00031. Meeting skipped. Assigned to IT Support." }, { type: "solution_note", note: "Solution: Master data correction protocol applied." }],
+  },
+  {
+    id: "HJD00108",
+    type: "challenge",
+    title: "Stock replenishment failure for chilled range at petrol forecourts",
+    description: "Chilled SKUs at 8 forecourt locations were not replenished over a bank holiday weekend, resulting in 48h out-of-stock and lost sales.",
+    department: "Convenience & Petrol",
+    assignedToDept: "Supply Chain",
+    meetingLevel: "team_weekly",
+    externalEmail: "",
+    createdBy: "Jonas Smit",
+    createdAt: "2026-04-22",
+    weekStart: "2026-04-21",
+    status: "resolved",
+    meetingNeeded: true,
+    priority: "medium",
+    dueDate: "2026-04-29",
+    resolvedBy: "Supply Planning",
+    resolvedAt: "2026-05-06",
+    solution: "Root cause was a gap in bank holiday delivery schedule. Supply Planning and logistics aligned on a dedicated holiday replenishment run.",
+    solutionTemplate: { rootCause: "stock" },
+    assignedTo: "Supply Planning",
+    stakeholders: ["Supply Planning", "Jonas Smit"],
+    details: { isRecurring: false },
+    updates: [{ type: "feedback", note: "Supply chain investigating. (Jonas Smit, 2026-04-24)" }, { type: "feedback", note: "Holiday delivery schedule gap confirmed. Meeting scheduled. (Supply Planning, 2026-04-28)" }, { type: "solution_note", note: "Solution: Bank holiday replenishment run established." }],
+  },
+  {"id":"HJD00109","type":"contribution","title":"Shared best practice for promo execution across regions","description":"Shared best practice for promo execution across regions. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Bram de Jong","createdAt":"2026-01-23","weekStart":"2026-01-19","status":"closed","meetingNeeded":false,"priority":"medium","dueDate":"","resolvedBy":"Tom Bakker","resolvedAt":"2026-04-11","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"","stakeholders":["Femke de Graaf","Fleur Hendriks"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00110","type":"challenge","title":"Delayed shipment notifications causing retailer complaints","description":"Delayed shipment notifications causing retailer complaints. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Daan Meijer","createdAt":"2026-04-29","weekStart":"2026-04-27","status":"new","meetingNeeded":true,"priority":"low","dueDate":"2026-04-30","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Jonas Smit","Tom Bakker"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00111","type":"celebration","title":"Record quarterly volume in convenience channel","description":"Record quarterly volume in convenience channel. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Mila Janssen","createdAt":"2026-03-21","weekStart":"2026-03-16","status":"in_discussion","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Joost Jacobs","Anna Peters"],"details":{"isRecurring":true},"updates":[]},
+  {"id":"HJD00112","type":"challenge","title":"Incorrect promotional pricing in POS systems across region","description":"Incorrect promotional pricing in POS systems across region. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Sanne Mulder","createdAt":"2026-03-05","weekStart":"2026-03-02","status":"assigned","meetingNeeded":true,"priority":"high","dueDate":"2026-03-07","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Eva Bosman","stakeholders":["Anna Peters","Niels Kuiper"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Alex Vermeer, 2026-03-05)"}]},
+  {"id":"HJD00113","type":"challenge","title":"Pallet damage during cross-dock operations at DC South","description":"Pallet damage during cross-dock operations at DC South. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Emma Visser","createdAt":"2026-01-22","weekStart":"2026-01-19","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-03-22","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Luuk van den Berg","Alex Vermeer"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00114","type":"challenge","title":"EDI integration failure with new wholesaler platform","description":"EDI integration failure with new wholesaler platform. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"Key Accounts Supermarkets","meetingLevel":"regional_red","externalEmail":"","createdBy":"Rosa Brouwer","createdAt":"2026-02-02","weekStart":"2026-02-02","status":"assigned","meetingNeeded":true,"priority":"medium","dueDate":"2026-06-12","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Jade Mulder","stakeholders":["Lisa Dekker"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Jonas Smit, 2026-02-28)"}]},
+  {"id":"HJD00115","type":"contribution","title":"Created automated reporting template for weekly sales review","description":"Created automated reporting template for weekly sales review. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-02-24","weekStart":"2026-02-23","status":"assigned","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Eva Bosman","Sanne Mulder"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00116","type":"challenge","title":"Weekend replenishment gap for energy drink SKUs","description":"Weekend replenishment gap for energy drink SKUs. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"HR","meetingLevel":"national_red","externalEmail":"","createdBy":"Alex Vermeer","createdAt":"2026-01-15","weekStart":"2026-01-12","status":"resolved","meetingNeeded":true,"priority":"medium","dueDate":"2026-04-25","resolvedBy":"Emma Visser","resolvedAt":"2026-01-26","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"logistics"},"assignedTo":"Pieter Vos","stakeholders":["Anna Peters","Jonas Smit"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Tom Bakker, 2026-03-22)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00117","type":"challenge","title":"Customer service response time exceeding SLA targets","description":"Customer service response time exceeding SLA targets. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"HR","meetingLevel":"regional_red","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-04-03","weekStart":"2026-03-30","status":"new","meetingNeeded":true,"priority":"low","dueDate":"2026-05-24","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Ruben Smeets","Lisa Dekker"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00118","type":"celebration","title":"Team achieved highest NPS score in company history","description":"Team achieved highest NPS score in company history. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Damian de Groot","createdAt":"2026-02-04","weekStart":"2026-02-02","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"Ruben Smeets","resolvedAt":"2026-02-05","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"pricing"},"assignedTo":"","stakeholders":["Ruben Smeets","Luuk van den Berg"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00119","type":"challenge","title":"Missing product images on retailer e-commerce portals","description":"Missing product images on retailer e-commerce portals. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"HR","meetingLevel":"national_red","externalEmail":"","createdBy":"Sanne Mulder","createdAt":"2026-02-02","weekStart":"2026-02-02","status":"in_discussion","meetingNeeded":true,"priority":"medium","dueDate":"2026-05-11","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Alex Vermeer","stakeholders":["Joost Jacobs","Mila Janssen"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Laura de Vries, 2026-02-06)"}]},
+  {"id":"HJD00120","type":"contribution","title":"Documented standard operating procedure for returns handling","description":"Documented standard operating procedure for returns handling. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Joost Jacobs","createdAt":"2026-01-25","weekStart":"2026-01-19","status":"new","meetingNeeded":false,"priority":"medium","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Laura de Vries","Mark Jansen"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00121","type":"challenge","title":"Invoice discrepancy for promotional volume rebates","description":"Invoice discrepancy for promotional volume rebates. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Anna Peters","createdAt":"2026-02-28","weekStart":"2026-02-23","status":"escalated","meetingNeeded":true,"priority":"low","dueDate":"2026-06-03","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Ruben Smeets","stakeholders":["Bram de Jong","Fleur Hendriks"],"details":{"isRecurring":false,"escalationLevel":"senior_leadership","escalationTargetMeeting":"leadership_sync","escalationMeetingDate":"2026-05-17","escalatedTo":"Daan Meijer","escalationReason":"Requires higher-level coordination and cross-departmental alignment."},"updates":[{"type":"feedback","note":"Initial review completed. (Lisa Dekker, 2026-03-07)"}]},
+  {"id":"HJD00122","type":"challenge","title":"Forecasting accuracy below target for seasonal launches","description":"Forecasting accuracy below target for seasonal launches. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"Operations","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Bram de Jong","createdAt":"2026-04-11","weekStart":"2026-04-06","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-04-26","resolvedBy":"Mila Janssen","resolvedAt":"2026-05-28","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Process"},"assignedTo":"Bram de Jong","stakeholders":["Bram de Jong","Joost Jacobs"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Damian de Groot, 2026-04-13)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00123","type":"contribution","title":"Built knowledge base article for EDI troubleshooting","description":"Built knowledge base article for EDI troubleshooting. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Luuk van den Berg","createdAt":"2026-01-31","weekStart":"2026-01-26","status":"in_discussion","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Jade Mulder","Daan Meijer"],"details":{"isRecurring":true},"updates":[]},
+  {"id":"HJD00124","type":"contribution","title":"Shared cross-functional escalation protocol improvement","description":"Shared cross-functional escalation protocol improvement. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Thijs Willems","createdAt":"2026-02-01","weekStart":"2026-01-26","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"Rosa Brouwer","resolvedAt":"2026-02-17","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"compliance"},"assignedTo":"","stakeholders":["Joost Jacobs","Sanne Mulder"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00125","type":"challenge","title":"Warehouse capacity constraint during peak promotion weeks","description":"Warehouse capacity constraint during peak promotion weeks. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Laura de Vries","createdAt":"2026-02-21","weekStart":"2026-02-16","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"2026-04-29","resolvedBy":"Eva Bosman","resolvedAt":"2026-04-29","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"pricing"},"assignedTo":"Mark Jansen","stakeholders":["Mila Janssen","Mark Jansen"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Femke de Graaf, 2026-03-10)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00126","type":"challenge","title":"Returns processing backlog at central distribution centre","description":"Returns processing backlog at central distribution centre. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"Trade Marketing","meetingLevel":"regional_red","externalEmail":"","createdBy":"Niels Kuiper","createdAt":"2026-05-10","weekStart":"2026-05-04","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"2026-05-13","resolvedBy":"Mark Jansen","resolvedAt":"2026-05-29","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"External partner"},"assignedTo":"Pieter Vos","stakeholders":["Joost Jacobs","Lisa Dekker"],"details":{"isRecurring":false,"knowledgeReused":true,"knowledgeReuseSource":"HJD00072","knowledgeReuseTimestamp":"2026-05-10T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00072","similarity":0.81,"appliedAt":"2026-05-10"}},"updates":[{"type":"feedback","note":"Initial review completed. (Jade Mulder, 2026-05-11)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00127","type":"challenge","title":"New SKU listing delays in national supermarket chains","description":"New SKU listing delays in national supermarket chains. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"Field Sales North","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Luuk van den Berg","createdAt":"2026-02-18","weekStart":"2026-02-16","status":"new","meetingNeeded":true,"priority":"high","dueDate":"2026-03-27","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Bram de Jong","Sophie van Dijk"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00128","type":"challenge","title":"Price label mismatch at shelf level in convenience stores","description":"Price label mismatch at shelf level in convenience stores. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales North","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Rosa Brouwer","createdAt":"2026-04-13","weekStart":"2026-04-13","status":"escalated","meetingNeeded":true,"priority":"low","dueDate":"2026-06-07","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Emma Visser","stakeholders":["Ruben Smeets","Niels Kuiper"],"details":{"isRecurring":false,"escalationLevel":"team_lead","escalationTargetMeeting":"regional_red","escalationMeetingDate":"2026-05-07","escalatedTo":"Alex Vermeer","escalationReason":"Requires higher-level coordination and cross-departmental alignment."},"updates":[{"type":"feedback","note":"Initial review completed. (Mila Janssen, 2026-05-03)"}]},
+  {"id":"HJD00129","type":"challenge","title":"Delivery window violations at key account warehouses","description":"Delivery window violations at key account warehouses. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"Field Sales South","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Daan Meijer","createdAt":"2026-04-26","weekStart":"2026-04-20","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"2026-06-12","resolvedBy":"Niels Kuiper","resolvedAt":"2026-05-17","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"People"},"assignedTo":"Jonas Smit","stakeholders":["Daan Meijer","Niels Kuiper"],"details":{"isRecurring":false,"knowledgeReused":true,"knowledgeReuseSource":"HJD00077","knowledgeReuseTimestamp":"2026-04-26T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00077","similarity":0.8,"appliedAt":"2026-04-26"}},"updates":[{"type":"feedback","note":"Initial review completed. (Bram de Jong, 2026-05-31)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00130","type":"challenge","title":"Stock allocation imbalance between urban and rural stores","description":"Stock allocation imbalance between urban and rural stores. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Niels Kuiper","createdAt":"2026-04-08","weekStart":"2026-04-06","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-06-10","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Mila Janssen"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00131","type":"challenge","title":"Promotional display compliance below 60 percent target","description":"Promotional display compliance below 60 percent target. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Daan Meijer","createdAt":"2026-05-01","weekStart":"2026-04-27","status":"closed","meetingNeeded":true,"priority":"high","dueDate":"2026-05-07","resolvedBy":"Luuk van den Berg","resolvedAt":"2026-05-16","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"Fleur Hendriks","stakeholders":["Emma Visser","Femke de Graaf"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Thijs Willems, 2026-05-06)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00132","type":"challenge","title":"Cold chain monitoring gaps during overnight transport","description":"Cold chain monitoring gaps during overnight transport. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Jade Mulder","createdAt":"2026-04-13","weekStart":"2026-04-13","status":"new","meetingNeeded":true,"priority":"low","dueDate":"2026-04-28","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Laura de Vries","Bram de Jong"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00133","type":"celebration","title":"Successful zero waste initiative at southern DC","description":"Successful zero waste initiative at southern DC. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Bram de Jong","createdAt":"2026-04-30","weekStart":"2026-04-27","status":"new","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Niels Kuiper","Mila Janssen"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00134","type":"celebration","title":"Regional team won internal innovation challenge","description":"Regional team won internal innovation challenge. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales North","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Mark Jansen","createdAt":"2026-04-08","weekStart":"2026-04-06","status":"in_discussion","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Sophie van Dijk","Mila Janssen"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00135","type":"contribution","title":"Developed new onboarding checklist for field sales reps","description":"Developed new onboarding checklist for field sales reps. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Pieter Vos","createdAt":"2026-02-17","weekStart":"2026-02-16","status":"closed","meetingNeeded":false,"priority":"medium","dueDate":"","resolvedBy":"Emma Visser","resolvedAt":"2026-03-05","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"","stakeholders":["Lisa Dekker","Sanne Mulder"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00136","type":"challenge","title":"Trade spend reconciliation errors in Q1 close","description":"Trade spend reconciliation errors in Q1 close. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"Supply Chain","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Thijs Willems","createdAt":"2026-01-28","weekStart":"2026-01-26","status":"in_discussion","meetingNeeded":true,"priority":"high","dueDate":"2026-05-30","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Laura de Vries","stakeholders":["Luuk van den Berg","Jade Mulder"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Lisa Dekker, 2026-03-22)"}]},
+  {"id":"HJD00137","type":"contribution","title":"Created store visit efficiency playbook for team","description":"Created store visit efficiency playbook for team. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Damian de Groot","createdAt":"2026-02-02","weekStart":"2026-02-02","status":"closed","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"Mila Janssen","resolvedAt":"2026-03-21","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"","stakeholders":["Femke de Graaf","Luuk van den Berg"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00138","type":"celebration","title":"100 percent SLA compliance achievement for three months","description":"100 percent SLA compliance achievement for three months. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Eva Bosman","createdAt":"2026-03-26","weekStart":"2026-03-23","status":"assigned","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Emma Visser","Ruben Smeets"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00139","type":"challenge","title":"Competitor pricing intelligence data feed interruption","description":"Competitor pricing intelligence data feed interruption. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Emma Visser","createdAt":"2026-04-17","weekStart":"2026-04-13","status":"resolved","meetingNeeded":true,"priority":"high","dueDate":"2026-05-13","resolvedBy":"Tom Bakker","resolvedAt":"2026-05-29","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Customer"},"assignedTo":"Mila Janssen","stakeholders":["Bram de Jong","Thijs Willems"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Eva Bosman, 2026-04-29)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00140","type":"challenge","title":"Digital coupon redemption failures on mobile app","description":"Digital coupon redemption failures on mobile app. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Daan Meijer","createdAt":"2026-04-28","weekStart":"2026-04-27","status":"closed","meetingNeeded":true,"priority":"high","dueDate":"2026-06-12","resolvedBy":"Jade Mulder","resolvedAt":"2026-04-29","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"Rosa Brouwer","stakeholders":["Femke de Graaf","Anna Peters"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Damian de Groot, 2026-05-07)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00141","type":"contribution","title":"Documented pricing exception workflow for reference","description":"Documented pricing exception workflow for reference. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Jonas Smit","createdAt":"2026-01-16","weekStart":"2026-01-12","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"Damian de Groot","resolvedAt":"2026-05-02","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Data"},"assignedTo":"","stakeholders":["Anna Peters","Damian de Groot"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00142","type":"challenge","title":"Master data synchronisation lag between ERP and WMS","description":"Master data synchronisation lag between ERP and WMS. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Eva Bosman","createdAt":"2026-01-18","weekStart":"2026-01-12","status":"closed","meetingNeeded":true,"priority":"high","dueDate":"2026-04-16","resolvedBy":"Anna Peters","resolvedAt":"2026-02-12","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"Alex Vermeer","stakeholders":["Anna Peters","Sanne Mulder"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Rosa Brouwer, 2026-03-09)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00143","type":"challenge","title":"Planogram compliance audit revealing 30 percent deviation","description":"Planogram compliance audit revealing 30 percent deviation. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"Finance","meetingLevel":"regional_red","externalEmail":"","createdBy":"Anna Peters","createdAt":"2026-02-15","weekStart":"2026-02-09","status":"new","meetingNeeded":true,"priority":"low","dueDate":"2026-03-13","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Eva Bosman","Bram de Jong"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00144","type":"challenge","title":"Route optimisation causing missed delivery windows","description":"Route optimisation causing missed delivery windows. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-01-20","weekStart":"2026-01-19","status":"resolved","meetingNeeded":true,"priority":"low","dueDate":"2026-04-22","resolvedBy":"Ruben Smeets","resolvedAt":"2026-04-11","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Customer"},"assignedTo":"Bram de Jong","stakeholders":["Lisa Dekker","Fleur Hendriks"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Mark Jansen, 2026-02-02)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00145","type":"celebration","title":"New product launch exceeded target by 20 percent","description":"New product launch exceeded target by 20 percent. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Thijs Willems","createdAt":"2026-03-14","weekStart":"2026-03-09","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"Thijs Willems","resolvedAt":"2026-05-26","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"System"},"assignedTo":"","stakeholders":["Mark Jansen","Jonas Smit"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00146","type":"celebration","title":"Cross-functional project completed ahead of schedule","description":"Cross-functional project completed ahead of schedule. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales North","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Niels Kuiper","createdAt":"2026-02-19","weekStart":"2026-02-16","status":"new","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Niels Kuiper","Joost Jacobs"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00147","type":"challenge","title":"Shelf-ready packaging quality issues from co-packer","description":"Shelf-ready packaging quality issues from co-packer. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Luuk van den Berg","createdAt":"2026-05-05","weekStart":"2026-05-04","status":"resolved","meetingNeeded":false,"priority":"medium","dueDate":"2026-05-11","resolvedBy":"Emma Visser","resolvedAt":"2026-05-07","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Customer"},"assignedTo":"Alex Vermeer","stakeholders":["Mark Jansen","Tom Bakker"],"details":{"isRecurring":false,"knowledgeReused":true,"knowledgeReuseSource":"HJD00087","knowledgeReuseTimestamp":"2026-05-05T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00087","similarity":0.85,"appliedAt":"2026-05-05"}},"updates":[{"type":"feedback","note":"Initial review completed. (Jade Mulder, 2026-05-10)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00148","type":"challenge","title":"Retailer portal access issues after system migration","description":"Retailer portal access issues after system migration. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"IT","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-03-20","weekStart":"2026-03-16","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-05-28","resolvedBy":"Daan Meijer","resolvedAt":"2026-04-28","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"External partner"},"assignedTo":"Rosa Brouwer","stakeholders":["Fleur Hendriks","Alex Vermeer"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Tom Bakker, 2026-04-23)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00149","type":"challenge","title":"Seasonal stock build-up exceeding warehouse capacity","description":"Seasonal stock build-up exceeding warehouse capacity. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"Finance","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Luuk van den Berg","createdAt":"2026-04-10","weekStart":"2026-04-06","status":"resolved","meetingNeeded":true,"priority":"low","dueDate":"2026-06-02","resolvedBy":"Lisa Dekker","resolvedAt":"2026-04-19","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"External partner"},"assignedTo":"Luuk van den Berg","stakeholders":["Joost Jacobs","Lisa Dekker"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Eva Bosman, 2026-05-17)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00150","type":"challenge","title":"Vending machine telemetry data gaps in northern region","description":"Vending machine telemetry data gaps in northern region. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Jade Mulder","createdAt":"2026-01-23","weekStart":"2026-01-19","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-04-17","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Alex Vermeer","Daan Meijer"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00151","type":"challenge","title":"Category review preparation data incomplete for buyer meeting","description":"Category review preparation data incomplete for buyer meeting. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Mark Jansen","createdAt":"2026-03-16","weekStart":"2026-03-16","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-04-17","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Luuk van den Berg","Bram de Jong"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00152","type":"contribution","title":"Built reusable promotional compliance checklist","description":"Built reusable promotional compliance checklist. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Sanne Mulder","createdAt":"2026-05-13","weekStart":"2026-05-11","status":"closed","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"Thijs Willems","resolvedAt":"2026-05-14","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"","stakeholders":["Mila Janssen","Niels Kuiper"],"details":{"isRecurring":true},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00153","type":"challenge","title":"New product launch sampling distribution behind schedule","description":"New product launch sampling distribution behind schedule. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Tom Bakker","createdAt":"2026-02-05","weekStart":"2026-02-02","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-05-21","resolvedBy":"Laura de Vries","resolvedAt":"2026-04-27","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"System"},"assignedTo":"Fleur Hendriks","stakeholders":["Eva Bosman","Daan Meijer"],"details":{"isRecurring":false,"knowledgeReused":true,"knowledgeReuseSource":"HJD00075","knowledgeReuseTimestamp":"2026-02-05T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00075","similarity":0.86,"appliedAt":"2026-02-05"}},"updates":[{"type":"feedback","note":"Initial review completed. (Thijs Willems, 2026-03-20)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00154","type":"challenge","title":"Cross-border order fulfilment delays due to customs changes","description":"Cross-border order fulfilment delays due to customs changes. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Anna Peters","createdAt":"2026-03-01","weekStart":"2026-02-23","status":"escalated","meetingNeeded":false,"priority":"medium","dueDate":"2026-04-03","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Sophie van Dijk","stakeholders":["Jonas Smit","Pieter Vos"],"details":{"isRecurring":false,"escalationLevel":"senior_leadership","escalationTargetMeeting":"leadership_sync","escalationMeetingDate":"2026-04-04","escalatedTo":"Ruben Smeets","escalationReason":"Requires higher-level coordination and cross-departmental alignment."},"updates":[{"type":"feedback","note":"Initial review completed. (Joost Jacobs, 2026-03-05)"}]},
+  {"id":"HJD00155","type":"challenge","title":"Promotion mechanic error causing double discount at checkout","description":"Promotion mechanic error causing double discount at checkout. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Sophie van Dijk","createdAt":"2026-03-24","weekStart":"2026-03-23","status":"resolved","meetingNeeded":true,"priority":"medium","dueDate":"2026-04-24","resolvedBy":"Pieter Vos","resolvedAt":"2026-05-17","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Process"},"assignedTo":"Anna Peters","stakeholders":["Laura de Vries","Lisa Dekker"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Damian de Groot, 2026-04-09)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00156","type":"challenge","title":"Field team tablet app sync failures in low connectivity areas","description":"Field team tablet app sync failures in low connectivity areas. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Sophie van Dijk","createdAt":"2026-01-27","weekStart":"2026-01-26","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-03-10","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Rosa Brouwer","Sophie van Dijk"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00157","type":"celebration","title":"Field team achieved zero safety incidents for quarter","description":"Field team achieved zero safety incidents for quarter. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Luuk van den Berg","createdAt":"2026-02-05","weekStart":"2026-02-02","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"Luuk van den Berg","resolvedAt":"2026-05-29","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"stock"},"assignedTo":"","stakeholders":["Rosa Brouwer","Lisa Dekker"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00158","type":"challenge","title":"Product recall communication chain incomplete at store level","description":"Product recall communication chain incomplete at store level. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"Field Sales North","meetingLevel":"national_red","externalEmail":"","createdBy":"Laura de Vries","createdAt":"2026-02-09","weekStart":"2026-02-09","status":"assigned","meetingNeeded":true,"priority":"medium","dueDate":"2026-02-11","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Emma Visser","stakeholders":["Jonas Smit","Sophie van Dijk"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Niels Kuiper, 2026-02-09)"}]},
+  {"id":"HJD00159","type":"challenge","title":"Revenue leakage from untracked off-invoice deductions","description":"Revenue leakage from untracked off-invoice deductions. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"Key Accounts Supermarkets","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Thijs Willems","createdAt":"2026-04-06","weekStart":"2026-04-06","status":"assigned","meetingNeeded":false,"priority":"medium","dueDate":"2026-04-16","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Anna Peters","stakeholders":["Mila Janssen","Tom Bakker"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Daan Meijer, 2026-04-15)"}]},
+  {"id":"HJD00160","type":"challenge","title":"Sustainability reporting data collection gaps in supply chain","description":"Sustainability reporting data collection gaps in supply chain. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Laura de Vries","createdAt":"2026-03-23","weekStart":"2026-03-23","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-03-24","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Bram de Jong","Ruben Smeets"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00161","type":"challenge","title":"E-commerce product content not meeting retailer specifications","description":"E-commerce product content not meeting retailer specifications. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"Operations","meetingLevel":"national_red","externalEmail":"","createdBy":"Rosa Brouwer","createdAt":"2026-01-27","weekStart":"2026-01-26","status":"new","meetingNeeded":true,"priority":"high","dueDate":"2026-01-28","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Sanne Mulder","Alex Vermeer"],"details":{"isRecurring":true},"updates":[]},
+  {"id":"HJD00162","type":"challenge","title":"Trade marketing budget tracking spreadsheet errors","description":"Trade marketing budget tracking spreadsheet errors. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"Operations","meetingLevel":"national_red","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-03-12","weekStart":"2026-03-09","status":"assigned","meetingNeeded":true,"priority":"medium","dueDate":"2026-06-03","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Jonas Smit","stakeholders":["Luuk van den Berg","Daan Meijer"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Sanne Mulder, 2026-04-15)"}]},
+  {"id":"HJD00163","type":"challenge","title":"Store-level sales data feed delay affecting dashboards","description":"Store-level sales data feed delay affecting dashboards. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Mila Janssen","createdAt":"2026-05-14","weekStart":"2026-05-11","status":"new","meetingNeeded":true,"priority":"low","dueDate":"2026-05-31","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Damian de Groot","Tom Bakker"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00164","type":"challenge","title":"Damaged goods claim process taking over 30 days","description":"Damaged goods claim process taking over 30 days. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Tom Bakker","createdAt":"2026-04-30","weekStart":"2026-04-27","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-05-05","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Rosa Brouwer","Mark Jansen"],"details":{"isRecurring":true},"updates":[]},
+  {"id":"HJD00165","type":"challenge","title":"New distributor onboarding documentation incomplete","description":"New distributor onboarding documentation incomplete. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales North","assignedToDept":"Finance","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Tom Bakker","createdAt":"2026-01-18","weekStart":"2026-01-12","status":"resolved","meetingNeeded":false,"priority":"medium","dueDate":"2026-04-08","resolvedBy":"Laura de Vries","resolvedAt":"2026-04-09","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"stock"},"assignedTo":"Alex Vermeer","stakeholders":["Rosa Brouwer","Jade Mulder"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Tom Bakker, 2026-04-06)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00166","type":"challenge","title":"Promotional gondola end allocation conflict between brands","description":"Promotional gondola end allocation conflict between brands. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"Legal","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Fleur Hendriks","createdAt":"2026-01-23","weekStart":"2026-01-19","status":"resolved","meetingNeeded":false,"priority":"medium","dueDate":"2026-05-17","resolvedBy":"Femke de Graaf","resolvedAt":"2026-01-25","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"System"},"assignedTo":"Fleur Hendriks","stakeholders":["Lisa Dekker","Damian de Groot"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Lisa Dekker, 2026-04-03)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00167","type":"challenge","title":"Night delivery noise complaints at urban store locations","description":"Night delivery noise complaints at urban store locations. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"Finance","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Ruben Smeets","createdAt":"2026-04-13","weekStart":"2026-04-13","status":"assigned","meetingNeeded":true,"priority":"low","dueDate":"2026-04-14","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Anna Peters","stakeholders":["Bram de Jong","Sophie van Dijk"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Emma Visser, 2026-04-13)"}]},
+  {"id":"HJD00168","type":"challenge","title":"Product shelf life concern for slow-moving SKUs","description":"Product shelf life concern for slow-moving SKUs. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales North","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Sophie van Dijk","createdAt":"2026-05-04","weekStart":"2026-05-04","status":"new","meetingNeeded":true,"priority":"high","dueDate":"2026-05-14","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Laura de Vries","Mark Jansen"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00169","type":"challenge","title":"Regional sales target misalignment after territory restructure","description":"Regional sales target misalignment after territory restructure. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Laura de Vries","createdAt":"2026-03-01","weekStart":"2026-02-23","status":"resolved","meetingNeeded":true,"priority":"high","dueDate":"2026-03-12","resolvedBy":"Lisa Dekker","resolvedAt":"2026-03-19","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"compliance"},"assignedTo":"Thijs Willems","stakeholders":["Daan Meijer","Mark Jansen"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Pieter Vos, 2026-03-11)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00170","type":"challenge","title":"Loyalty programme integration issues with retailer app","description":"Loyalty programme integration issues with retailer app. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"Trade Marketing","meetingLevel":"regional_red","externalEmail":"","createdBy":"Jonas Smit","createdAt":"2026-03-15","weekStart":"2026-03-09","status":"assigned","meetingNeeded":true,"priority":"high","dueDate":"2026-04-09","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Femke de Graaf","stakeholders":["Thijs Willems","Femke de Graaf"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Anna Peters, 2026-03-23)"}]},
+  {"id":"HJD00171","type":"contribution","title":"Shared competitive intelligence collection methodology","description":"Shared competitive intelligence collection methodology. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Daan Meijer","createdAt":"2026-02-17","weekStart":"2026-02-16","status":"assigned","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Bram de Jong","Anna Peters"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00172","type":"challenge","title":"Packaging artwork error on limited edition product","description":"Packaging artwork error on limited edition product. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Anna Peters","createdAt":"2026-02-06","weekStart":"2026-02-02","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-04-14","resolvedBy":"Fleur Hendriks","resolvedAt":"2026-05-30","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Process"},"assignedTo":"Thijs Willems","stakeholders":["Pieter Vos","Niels Kuiper"],"details":{"isRecurring":false,"knowledgeReused":true,"knowledgeReuseSource":"HJD00013","knowledgeReuseTimestamp":"2026-02-06T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00013","similarity":0.86,"appliedAt":"2026-02-06"}},"updates":[{"type":"feedback","note":"Initial review completed. (Bram de Jong, 2026-03-02)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00173","type":"celebration","title":"E-commerce growth milestone reaching double digits","description":"E-commerce growth milestone reaching double digits. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Laura de Vries","createdAt":"2026-04-16","weekStart":"2026-04-13","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"Mark Jansen","resolvedAt":"2026-05-24","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"System"},"assignedTo":"","stakeholders":["Sophie van Dijk","Pieter Vos"],"details":{"isRecurring":true},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00174","type":"celebration","title":"Customer satisfaction index highest in five years","description":"Customer satisfaction index highest in five years. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Jade Mulder","createdAt":"2026-04-19","weekStart":"2026-04-13","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"Eva Bosman","resolvedAt":"2026-05-08","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"pricing"},"assignedTo":"","stakeholders":["Anna Peters","Sophie van Dijk"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00175","type":"celebration","title":"Record quarterly volume in convenience channel","description":"Record quarterly volume in convenience channel. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Lisa Dekker","createdAt":"2026-02-14","weekStart":"2026-02-09","status":"escalated","meetingNeeded":false,"priority":"medium","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Fleur Hendriks","Sanne Mulder"],"details":{"isRecurring":false,"escalationLevel":"team_lead","escalationTargetMeeting":"regional_red","escalationMeetingDate":"2026-04-22","escalatedTo":"Laura de Vries","escalationReason":"Requires higher-level coordination and cross-departmental alignment."},"updates":[]},
+  {"id":"HJD00176","type":"challenge","title":"Store execution audit scoring inconsistency between regions","description":"Store execution audit scoring inconsistency between regions. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"Legal","meetingLevel":"national_red","externalEmail":"","createdBy":"Eva Bosman","createdAt":"2026-04-16","weekStart":"2026-04-13","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-05-02","resolvedBy":"Pieter Vos","resolvedAt":"2026-04-18","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"pricing"},"assignedTo":"Sanne Mulder","stakeholders":["Rosa Brouwer","Joost Jacobs"],"details":{"isRecurring":true,"knowledgeReused":true,"knowledgeReuseSource":"HJD00046","knowledgeReuseTimestamp":"2026-04-16T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00046","similarity":0.66,"appliedAt":"2026-04-16"}},"updates":[{"type":"feedback","note":"Initial review completed. (Mark Jansen, 2026-04-20)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00177","type":"challenge","title":"Supply chain visibility gap for imported ingredients","description":"Supply chain visibility gap for imported ingredients. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"Trade Marketing","meetingLevel":"regional_red","externalEmail":"","createdBy":"Bram de Jong","createdAt":"2026-02-21","weekStart":"2026-02-16","status":"resolved","meetingNeeded":true,"priority":"low","dueDate":"2026-05-19","resolvedBy":"Rosa Brouwer","resolvedAt":"2026-03-08","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"stock"},"assignedTo":"Femke de Graaf","stakeholders":["Eva Bosman","Mila Janssen"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Pieter Vos, 2026-04-02)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00178","type":"celebration","title":"Team achieved highest NPS score in company history","description":"Team achieved highest NPS score in company history. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Daan Meijer","createdAt":"2026-04-29","weekStart":"2026-04-27","status":"resolved","meetingNeeded":false,"priority":"medium","dueDate":"","resolvedBy":"Rosa Brouwer","resolvedAt":"2026-05-01","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Process"},"assignedTo":"","stakeholders":["Jade Mulder","Lisa Dekker"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00179","type":"challenge","title":"Credit note processing delay affecting retailer relationship","description":"Credit note processing delay affecting retailer relationship. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"Field Sales North","meetingLevel":"national_red","externalEmail":"","createdBy":"Thijs Willems","createdAt":"2026-03-25","weekStart":"2026-03-23","status":"resolved","meetingNeeded":true,"priority":"medium","dueDate":"2026-05-22","resolvedBy":"Mark Jansen","resolvedAt":"2026-05-05","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"People"},"assignedTo":"Daan Meijer","stakeholders":["Niels Kuiper","Anna Peters"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Sanne Mulder, 2026-04-27)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00180","type":"challenge","title":"Field sales routing algorithm not considering store priorities","description":"Field sales routing algorithm not considering store priorities. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"Field Sales North","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Sophie van Dijk","createdAt":"2026-04-24","weekStart":"2026-04-20","status":"assigned","meetingNeeded":true,"priority":"high","dueDate":"2026-06-14","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Sophie van Dijk","stakeholders":["Tom Bakker","Emma Visser"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Sophie van Dijk, 2026-05-20)"}]},
+  {"id":"HJD00181","type":"contribution","title":"Shared best practice for promo execution across regions","description":"Shared best practice for promo execution across regions. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Laura de Vries","createdAt":"2026-03-31","weekStart":"2026-03-30","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"Laura de Vries","resolvedAt":"2026-03-31","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"External partner"},"assignedTo":"","stakeholders":["Rosa Brouwer","Pieter Vos"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00182","type":"challenge","title":"POS material delivery timing misaligned with promo start","description":"POS material delivery timing misaligned with promo start. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Niels Kuiper","createdAt":"2026-04-15","weekStart":"2026-04-13","status":"resolved","meetingNeeded":false,"priority":"medium","dueDate":"2026-04-26","resolvedBy":"Lisa Dekker","resolvedAt":"2026-04-23","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"pricing"},"assignedTo":"Anna Peters","stakeholders":["Laura de Vries","Sanne Mulder"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Fleur Hendriks, 2026-04-21)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00183","type":"challenge","title":"Stock transfer between DCs causing phantom inventory","description":"Stock transfer between DCs causing phantom inventory. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Anna Peters","createdAt":"2026-01-15","weekStart":"2026-01-12","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"2026-05-06","resolvedBy":"Rosa Brouwer","resolvedAt":"2026-04-18","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"pricing"},"assignedTo":"Daan Meijer","stakeholders":["Mila Janssen","Tom Bakker"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Pieter Vos, 2026-02-11)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00184","type":"contribution","title":"Created automated reporting template for weekly sales review","description":"Created automated reporting template for weekly sales review. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Niels Kuiper","createdAt":"2026-03-14","weekStart":"2026-03-09","status":"new","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Lisa Dekker","Thijs Willems"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00185","type":"celebration","title":"Successful zero waste initiative at southern DC","description":"Successful zero waste initiative at southern DC. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Sanne Mulder","createdAt":"2026-04-26","weekStart":"2026-04-20","status":"assigned","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Sanne Mulder","Eva Bosman"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00186","type":"challenge","title":"Retailer compliance penalty for delivery appointment violations","description":"Retailer compliance penalty for delivery appointment violations. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"Field Sales North","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Laura de Vries","createdAt":"2026-05-09","weekStart":"2026-05-04","status":"assigned","meetingNeeded":false,"priority":"low","dueDate":"2026-05-12","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Anna Peters","stakeholders":["Niels Kuiper","Damian de Groot"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Mila Janssen, 2026-05-09)"}]},
+  {"id":"HJD00187","type":"challenge","title":"Category space reduction at key account without prior notice","description":"Category space reduction at key account without prior notice. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"Field Sales North","meetingLevel":"national_red","externalEmail":"","createdBy":"Luuk van den Berg","createdAt":"2026-01-25","weekStart":"2026-01-19","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-04-02","resolvedBy":"Damian de Groot","resolvedAt":"2026-02-08","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"pricing"},"assignedTo":"Alex Vermeer","stakeholders":["Mark Jansen","Luuk van den Berg"],"details":{"isRecurring":false,"knowledgeReused":true,"knowledgeReuseSource":"HJD00033","knowledgeReuseTimestamp":"2026-01-25T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00033","similarity":0.94,"appliedAt":"2026-01-25"}},"updates":[{"type":"feedback","note":"Initial review completed. (Femke de Graaf, 2026-03-17)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00188","type":"challenge","title":"Seasonal demand spike not reflected in production planning","description":"Seasonal demand spike not reflected in production planning. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales North","assignedToDept":"Trade Marketing","meetingLevel":"regional_red","externalEmail":"","createdBy":"Sanne Mulder","createdAt":"2026-01-24","weekStart":"2026-01-19","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-03-31","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Rosa Brouwer","Damian de Groot"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00189","type":"challenge","title":"E-commerce order cancellation rate increasing beyond threshold","description":"E-commerce order cancellation rate increasing beyond threshold. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"Finance","meetingLevel":"national_red","externalEmail":"","createdBy":"Sophie van Dijk","createdAt":"2026-04-20","weekStart":"2026-04-20","status":"resolved","meetingNeeded":true,"priority":"medium","dueDate":"2026-05-16","resolvedBy":"Anna Peters","resolvedAt":"2026-04-23","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"External partner"},"assignedTo":"Ruben Smeets","stakeholders":["Mila Janssen","Damian de Groot"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Jonas Smit, 2026-04-29)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00190","type":"challenge","title":"Wholesaler minimum order quantity causing small store stockouts","description":"Wholesaler minimum order quantity causing small store stockouts. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Niels Kuiper","createdAt":"2026-04-20","weekStart":"2026-04-20","status":"assigned","meetingNeeded":false,"priority":"medium","dueDate":"2026-05-12","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Fleur Hendriks","stakeholders":["Sophie van Dijk","Ruben Smeets"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Jonas Smit, 2026-04-22)"}]},
+  {"id":"HJD00191","type":"challenge","title":"Trade promotion ROI calculation methodology inconsistency","description":"Trade promotion ROI calculation methodology inconsistency. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"Supply Chain","meetingLevel":"regional_red","externalEmail":"","createdBy":"Sanne Mulder","createdAt":"2026-03-28","weekStart":"2026-03-23","status":"escalated","meetingNeeded":true,"priority":"high","dueDate":"2026-04-02","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Thijs Willems","stakeholders":["Niels Kuiper","Jonas Smit"],"details":{"isRecurring":false,"escalationLevel":"senior_leadership","escalationTargetMeeting":"regional_red","escalationMeetingDate":"2026-05-28","escalatedTo":"Luuk van den Berg","escalationReason":"Requires higher-level coordination and cross-departmental alignment."},"updates":[{"type":"feedback","note":"Initial review completed. (Femke de Graaf, 2026-04-01)"}]},
+  {"id":"HJD00192","type":"challenge","title":"Field team overtime hours exceeding budget by 15 percent","description":"Field team overtime hours exceeding budget by 15 percent. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Sanne Mulder","createdAt":"2026-03-16","weekStart":"2026-03-16","status":"in_discussion","meetingNeeded":true,"priority":"medium","dueDate":"2026-03-31","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Bram de Jong","stakeholders":["Sanne Mulder","Tom Bakker"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Mila Janssen, 2026-03-24)"}]},
+  {"id":"HJD00193","type":"challenge","title":"New hire onboarding gap for sales technology tools","description":"New hire onboarding gap for sales technology tools. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"Field Sales South","meetingLevel":"regional_red","externalEmail":"","createdBy":"Sophie van Dijk","createdAt":"2026-04-22","weekStart":"2026-04-20","status":"new","meetingNeeded":true,"priority":"low","dueDate":"2026-05-12","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Ruben Smeets","Luuk van den Berg"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00194","type":"challenge","title":"Product availability dashboard showing incorrect real-time data","description":"Product availability dashboard showing incorrect real-time data. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"IT","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Mila Janssen","createdAt":"2026-03-06","weekStart":"2026-03-02","status":"resolved","meetingNeeded":true,"priority":"high","dueDate":"2026-05-21","resolvedBy":"Ruben Smeets","resolvedAt":"2026-03-13","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Data"},"assignedTo":"Pieter Vos","stakeholders":["Daan Meijer","Sanne Mulder"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Laura de Vries, 2026-04-04)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00195","type":"challenge","title":"Customer complaint resolution SLA breach at contact centre","description":"Customer complaint resolution SLA breach at contact centre. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales North","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Jade Mulder","createdAt":"2026-01-31","weekStart":"2026-01-26","status":"new","meetingNeeded":true,"priority":"high","dueDate":"2026-02-27","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Jade Mulder","Eva Bosman"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00196","type":"challenge","title":"Distributor invoice payment terms dispute resolution needed","description":"Distributor invoice payment terms dispute resolution needed. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"HR","meetingLevel":"regional_red","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-05-10","weekStart":"2026-05-04","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-05-27","resolvedBy":"Anna Peters","resolvedAt":"2026-05-30","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"compliance"},"assignedTo":"Bram de Jong","stakeholders":["Damian de Groot","Rosa Brouwer"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Lisa Dekker, 2026-05-14)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00197","type":"celebration","title":"Regional team won internal innovation challenge","description":"Regional team won internal innovation challenge. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Sophie van Dijk","createdAt":"2026-02-23","weekStart":"2026-02-23","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"Luuk van den Berg","resolvedAt":"2026-04-11","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"compliance"},"assignedTo":"","stakeholders":["Ruben Smeets","Emma Visser"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00198","type":"celebration","title":"100 percent SLA compliance achievement for three months","description":"100 percent SLA compliance achievement for three months. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Eva Bosman","createdAt":"2026-04-20","weekStart":"2026-04-20","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"Daan Meijer","resolvedAt":"2026-05-26","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"stock"},"assignedTo":"","stakeholders":["Fleur Hendriks","Mila Janssen"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00199","type":"celebration","title":"New product launch exceeded target by 20 percent","description":"New product launch exceeded target by 20 percent. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Alex Vermeer","createdAt":"2026-05-10","weekStart":"2026-05-04","status":"in_discussion","meetingNeeded":false,"priority":"medium","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Bram de Jong","Daan Meijer"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00200","type":"challenge","title":"In-store demo staffing shortage for weekend activations","description":"In-store demo staffing shortage for weekend activations. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Rosa Brouwer","createdAt":"2026-04-16","weekStart":"2026-04-13","status":"new","meetingNeeded":true,"priority":"high","dueDate":"2026-06-12","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Daan Meijer","Thijs Willems"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00201","type":"challenge","title":"Export documentation errors causing shipment holds","description":"Export documentation errors causing shipment holds. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"Key Accounts Supermarkets","meetingLevel":"regional_red","externalEmail":"","createdBy":"Sophie van Dijk","createdAt":"2026-03-16","weekStart":"2026-03-16","status":"in_discussion","meetingNeeded":true,"priority":"high","dueDate":"2026-05-04","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Laura de Vries","stakeholders":["Lisa Dekker","Damian de Groot"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Luuk van den Berg, 2026-04-01)"}]},
+  {"id":"HJD00202","type":"challenge","title":"Regional pricing strategy misalignment with national guidelines","description":"Regional pricing strategy misalignment with national guidelines. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"IT","meetingLevel":"national_red","externalEmail":"","createdBy":"Lisa Dekker","createdAt":"2026-02-19","weekStart":"2026-02-16","status":"in_discussion","meetingNeeded":false,"priority":"high","dueDate":"2026-05-04","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Emma Visser","stakeholders":["Pieter Vos"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Tom Bakker, 2026-04-16)"}]},
+  {"id":"HJD00203","type":"challenge","title":"Supply chain carbon footprint reporting inconsistency","description":"Supply chain carbon footprint reporting inconsistency. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales North","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Ruben Smeets","createdAt":"2026-02-21","weekStart":"2026-02-16","status":"resolved","meetingNeeded":true,"priority":"high","dueDate":"2026-03-12","resolvedBy":"Daan Meijer","resolvedAt":"2026-05-29","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"compliance"},"assignedTo":"Mila Janssen","stakeholders":["Fleur Hendriks","Joost Jacobs"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Jonas Smit, 2026-02-21)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00204","type":"challenge","title":"Retailer data sharing agreement renewal deadline approaching","description":"Retailer data sharing agreement renewal deadline approaching. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"IT","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Jade Mulder","createdAt":"2026-04-25","weekStart":"2026-04-20","status":"escalated","meetingNeeded":false,"priority":"medium","dueDate":"2026-05-25","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Jade Mulder","stakeholders":["Luuk van den Berg","Bram de Jong"],"details":{"isRecurring":false,"escalationLevel":"senior_leadership","escalationTargetMeeting":"leadership_sync","escalationMeetingDate":"2026-04-26","escalatedTo":"Daan Meijer","escalationReason":"Requires higher-level coordination and cross-departmental alignment."},"updates":[{"type":"feedback","note":"Initial review completed. (Lisa Dekker, 2026-05-16)"}]},
+  {"id":"HJD00205","type":"challenge","title":"Display fridge temperature monitoring system offline at stores","description":"Display fridge temperature monitoring system offline at stores. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"Finance","meetingLevel":"national_red","externalEmail":"","createdBy":"Niels Kuiper","createdAt":"2026-05-14","weekStart":"2026-05-11","status":"assigned","meetingNeeded":true,"priority":"high","dueDate":"2026-05-25","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Bram de Jong","stakeholders":["Damian de Groot","Bram de Jong"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Jonas Smit, 2026-05-21)"}]},
+  {"id":"HJD00206","type":"challenge","title":"Sales incentive calculation error in monthly payout","description":"Sales incentive calculation error in monthly payout. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Niels Kuiper","createdAt":"2026-02-22","weekStart":"2026-02-16","status":"resolved","meetingNeeded":true,"priority":"high","dueDate":"2026-06-12","resolvedBy":"Sanne Mulder","resolvedAt":"2026-04-28","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"logistics"},"assignedTo":"Alex Vermeer","stakeholders":["Mila Janssen","Pieter Vos"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Bram de Jong, 2026-03-02)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00207","type":"contribution","title":"Documented standard operating procedure for returns handling","description":"Documented standard operating procedure for returns handling. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Damian de Groot","createdAt":"2026-03-25","weekStart":"2026-03-23","status":"resolved","meetingNeeded":false,"priority":"medium","dueDate":"","resolvedBy":"Lisa Dekker","resolvedAt":"2026-04-27","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"compliance"},"assignedTo":"","stakeholders":["Lisa Dekker","Daan Meijer"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00208","type":"challenge","title":"Cross-functional alignment gap on NPD launch timeline","description":"Cross-functional alignment gap on NPD launch timeline. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"IT","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Tom Bakker","createdAt":"2026-02-12","weekStart":"2026-02-09","status":"resolved","meetingNeeded":true,"priority":"high","dueDate":"2026-02-21","resolvedBy":"Daan Meijer","resolvedAt":"2026-03-15","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Customer"},"assignedTo":"Fleur Hendriks","stakeholders":["Lisa Dekker","Mark Jansen"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Mila Janssen, 2026-02-16)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00209","type":"challenge","title":"Warehouse picking error rate above acceptable threshold","description":"Warehouse picking error rate above acceptable threshold. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"IT","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Ruben Smeets","createdAt":"2026-01-15","weekStart":"2026-01-12","status":"assigned","meetingNeeded":false,"priority":"medium","dueDate":"2026-05-14","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Rosa Brouwer","stakeholders":["Damian de Groot","Joost Jacobs"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Laura de Vries, 2026-01-21)"}]},
+  {"id":"HJD00210","type":"challenge","title":"Retailer markdown request for slow-moving seasonal stock","description":"Retailer markdown request for slow-moving seasonal stock. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-04-17","weekStart":"2026-04-13","status":"resolved","meetingNeeded":true,"priority":"low","dueDate":"2026-05-23","resolvedBy":"Emma Visser","resolvedAt":"2026-05-15","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"stock"},"assignedTo":"Mark Jansen","stakeholders":["Pieter Vos","Eva Bosman"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Eva Bosman, 2026-05-02)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00211","type":"challenge","title":"Digital shelf analytics tool subscription renewal decision","description":"Digital shelf analytics tool subscription renewal decision. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Fleur Hendriks","createdAt":"2026-02-17","weekStart":"2026-02-16","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-03-04","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Luuk van den Berg","Ruben Smeets"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00212","type":"challenge","title":"Field force CRM data quality degradation over past quarter","description":"Field force CRM data quality degradation over past quarter. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Tom Bakker","createdAt":"2026-03-22","weekStart":"2026-03-16","status":"assigned","meetingNeeded":true,"priority":"low","dueDate":"2026-05-29","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Laura de Vries","stakeholders":["Mila Janssen","Luuk van den Berg"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Bram de Jong, 2026-04-26)"}]},
+  {"id":"HJD00213","type":"challenge","title":"Promotional volume forecast variance exceeding 25 percent","description":"Promotional volume forecast variance exceeding 25 percent. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Eva Bosman","createdAt":"2026-04-29","weekStart":"2026-04-27","status":"resolved","meetingNeeded":false,"priority":"medium","dueDate":"2026-05-29","resolvedBy":"Anna Peters","resolvedAt":"2026-05-01","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"logistics"},"assignedTo":"Jade Mulder","stakeholders":["Anna Peters","Damian de Groot"],"details":{"isRecurring":false,"knowledgeReused":true,"knowledgeReuseSource":"HJD00014","knowledgeReuseTimestamp":"2026-04-29T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00014","similarity":0.73,"appliedAt":"2026-04-29"}},"updates":[{"type":"feedback","note":"Initial review completed. (Damian de Groot, 2026-05-05)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00214","type":"challenge","title":"Inter-company transfer pricing audit finding resolution needed","description":"Inter-company transfer pricing audit finding resolution needed. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"Field Sales South","meetingLevel":"regional_red","externalEmail":"","createdBy":"Pieter Vos","createdAt":"2026-01-25","weekStart":"2026-01-19","status":"resolved","meetingNeeded":true,"priority":"medium","dueDate":"2026-02-26","resolvedBy":"Mila Janssen","resolvedAt":"2026-01-30","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Customer"},"assignedTo":"Sophie van Dijk","stakeholders":["Eva Bosman","Bram de Jong"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Sanne Mulder, 2026-02-10)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00215","type":"challenge","title":"Customer master data duplication causing order processing issues","description":"Customer master data duplication causing order processing issues. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Ruben Smeets","createdAt":"2026-05-12","weekStart":"2026-05-11","status":"new","meetingNeeded":true,"priority":"low","dueDate":"2026-05-26","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Eva Bosman","Anna Peters"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00216","type":"challenge","title":"Regional depot consolidation impact on delivery lead times","description":"Regional depot consolidation impact on delivery lead times. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"Field Sales North","meetingLevel":"national_red","externalEmail":"","createdBy":"Jade Mulder","createdAt":"2026-02-06","weekStart":"2026-02-02","status":"in_discussion","meetingNeeded":false,"priority":"medium","dueDate":"2026-05-23","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Rosa Brouwer","stakeholders":["Fleur Hendriks"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Lisa Dekker, 2026-05-21)"}]},
+  {"id":"HJD00217","type":"contribution","title":"Built knowledge base article for EDI troubleshooting","description":"Built knowledge base article for EDI troubleshooting. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Fleur Hendriks","createdAt":"2026-03-14","weekStart":"2026-03-09","status":"assigned","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Jade Mulder","Laura de Vries"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00218","type":"challenge","title":"Trade terms renegotiation preparation for annual review","description":"Trade terms renegotiation preparation for annual review. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"Supply Chain","meetingLevel":"national_red","externalEmail":"","createdBy":"Damian de Groot","createdAt":"2026-01-19","weekStart":"2026-01-19","status":"new","meetingNeeded":true,"priority":"high","dueDate":"2026-04-08","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Femke de Graaf","Joost Jacobs"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00219","type":"challenge","title":"Store cluster analysis outdated after demographic shifts","description":"Store cluster analysis outdated after demographic shifts. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Fleur Hendriks","createdAt":"2026-02-15","weekStart":"2026-02-09","status":"resolved","meetingNeeded":true,"priority":"medium","dueDate":"2026-04-27","resolvedBy":"Mark Jansen","resolvedAt":"2026-05-25","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"External partner"},"assignedTo":"Joost Jacobs","stakeholders":["Mark Jansen","Alex Vermeer"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Lisa Dekker, 2026-04-04)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00220","type":"challenge","title":"Product registration delay in new market causing launch slip","description":"Product registration delay in new market causing launch slip. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"Key Accounts Supermarkets","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-02-01","weekStart":"2026-01-26","status":"closed","meetingNeeded":true,"priority":"medium","dueDate":"2026-02-10","resolvedBy":"Anna Peters","resolvedAt":"2026-02-05","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"Bram de Jong","stakeholders":["Joost Jacobs","Sophie van Dijk"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Ruben Smeets, 2026-02-03)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00221","type":"challenge","title":"Sales force effectiveness metrics dashboard latency issues","description":"Sales force effectiveness metrics dashboard latency issues. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-03-01","weekStart":"2026-02-23","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-04-21","resolvedBy":"Tom Bakker","resolvedAt":"2026-03-18","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"People"},"assignedTo":"Bram de Jong","stakeholders":["Alex Vermeer","Mark Jansen"],"details":{"isRecurring":true,"knowledgeReused":true,"knowledgeReuseSource":"HJD00041","knowledgeReuseTimestamp":"2026-03-01T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00041","similarity":0.83,"appliedAt":"2026-03-01"}},"updates":[{"type":"feedback","note":"Initial review completed. (Pieter Vos, 2026-03-14)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00222","type":"challenge","title":"Retailer collaboration portal performance degradation","description":"Retailer collaboration portal performance degradation. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"Operations","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Mila Janssen","createdAt":"2026-04-29","weekStart":"2026-04-27","status":"in_discussion","meetingNeeded":true,"priority":"medium","dueDate":"2026-05-25","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Sophie van Dijk","stakeholders":["Jonas Smit","Rosa Brouwer"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Pieter Vos, 2026-05-15)"}]},
+  {"id":"HJD00223","type":"challenge","title":"Supply disruption contingency plan not tested since last year","description":"Supply disruption contingency plan not tested since last year. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales North","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Emma Visser","createdAt":"2026-04-08","weekStart":"2026-04-06","status":"resolved","meetingNeeded":true,"priority":"low","dueDate":"2026-06-11","resolvedBy":"Eva Bosman","resolvedAt":"2026-05-27","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Customer"},"assignedTo":"Eva Bosman","stakeholders":["Ruben Smeets","Rosa Brouwer"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Fleur Hendriks, 2026-05-16)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00224","type":"celebration","title":"Cross-functional project completed ahead of schedule","description":"Cross-functional project completed ahead of schedule. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Jonas Smit","createdAt":"2026-02-19","weekStart":"2026-02-16","status":"new","meetingNeeded":false,"priority":"low","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Jade Mulder","Lisa Dekker"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00225","type":"challenge","title":"Category advisory report data visualisation errors","description":"Category advisory report data visualisation errors. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"Legal","meetingLevel":"national_red","externalEmail":"","createdBy":"Ruben Smeets","createdAt":"2026-02-20","weekStart":"2026-02-16","status":"in_discussion","meetingNeeded":false,"priority":"medium","dueDate":"2026-03-25","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Emma Visser","stakeholders":["Lisa Dekker","Jonas Smit"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Luuk van den Berg, 2026-03-14)"}]},
+  {"id":"HJD00226","type":"challenge","title":"Frozen range space reduction at convenience stores","description":"Frozen range space reduction at convenience stores. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Jade Mulder","createdAt":"2026-05-05","weekStart":"2026-05-04","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-05-18","resolvedBy":"Laura de Vries","resolvedAt":"2026-05-18","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"compliance"},"assignedTo":"Sophie van Dijk","stakeholders":["Eva Bosman","Alex Vermeer"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Damian de Groot, 2026-05-14)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00227","type":"challenge","title":"Promotional calendar conflict between national and regional teams","description":"Promotional calendar conflict between national and regional teams. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Sanne Mulder","createdAt":"2026-04-29","weekStart":"2026-04-27","status":"resolved","meetingNeeded":true,"priority":"low","dueDate":"2026-06-09","resolvedBy":"Eva Bosman","resolvedAt":"2026-05-19","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"External partner"},"assignedTo":"Eva Bosman","stakeholders":["Emma Visser","Laura de Vries"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Emma Visser, 2026-05-15)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00228","type":"challenge","title":"Delivery vehicle fleet maintenance backlog increasing","description":"Delivery vehicle fleet maintenance backlog increasing. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"HR","meetingLevel":"regional_red","externalEmail":"","createdBy":"Mark Jansen","createdAt":"2026-03-13","weekStart":"2026-03-09","status":"escalated","meetingNeeded":true,"priority":"medium","dueDate":"2026-06-08","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Jonas Smit","stakeholders":["Mark Jansen","Joost Jacobs"],"details":{"isRecurring":false,"escalationLevel":"senior_leadership","escalationTargetMeeting":"national_red","escalationMeetingDate":"2026-04-10","escalatedTo":"Daan Meijer","escalationReason":"Requires higher-level coordination and cross-departmental alignment."},"updates":[{"type":"feedback","note":"Initial review completed. (Tom Bakker, 2026-05-08)"}]},
+  {"id":"HJD00229","type":"challenge","title":"B2B portal order tracking functionality not meeting expectations","description":"B2B portal order tracking functionality not meeting expectations. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Mark Jansen","createdAt":"2026-03-08","weekStart":"2026-03-02","status":"resolved","meetingNeeded":false,"priority":"low","dueDate":"2026-05-09","resolvedBy":"Rosa Brouwer","resolvedAt":"2026-05-30","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"logistics"},"assignedTo":"Pieter Vos","stakeholders":["Fleur Hendriks","Luuk van den Berg"],"details":{"isRecurring":false,"knowledgeReused":true,"knowledgeReuseSource":"HJD00022","knowledgeReuseTimestamp":"2026-03-08T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00022","similarity":0.75,"appliedAt":"2026-03-08"}},"updates":[{"type":"feedback","note":"Initial review completed. (Sophie van Dijk, 2026-04-06)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00230","type":"contribution","title":"Shared cross-functional escalation protocol improvement","description":"Shared cross-functional escalation protocol improvement. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Tom Bakker","createdAt":"2026-03-15","weekStart":"2026-03-09","status":"assigned","meetingNeeded":false,"priority":"medium","dueDate":"","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Bram de Jong","Thijs Willems"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00231","type":"challenge","title":"Store-level inventory accuracy below target in pilot region","description":"Store-level inventory accuracy below target in pilot region. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"Field Sales South","meetingLevel":"national_red","externalEmail":"","createdBy":"Laura de Vries","createdAt":"2026-03-12","weekStart":"2026-03-09","status":"resolved","meetingNeeded":true,"priority":"high","dueDate":"2026-03-20","resolvedBy":"Mark Jansen","resolvedAt":"2026-05-28","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"Customer"},"assignedTo":"Anna Peters","stakeholders":["Emma Visser","Thijs Willems"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Damian de Groot, 2026-03-12)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00232","type":"challenge","title":"New sustainability packaging transition timeline at risk","description":"New sustainability packaging transition timeline at risk. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Eva Bosman","createdAt":"2026-03-21","weekStart":"2026-03-16","status":"resolved","meetingNeeded":false,"priority":"medium","dueDate":"2026-05-22","resolvedBy":"Rosa Brouwer","resolvedAt":"2026-05-10","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"logistics"},"assignedTo":"Fleur Hendriks","stakeholders":["Sophie van Dijk","Pieter Vos"],"details":{"isRecurring":false,"knowledgeReused":true,"knowledgeReuseSource":"HJD00040","knowledgeReuseTimestamp":"2026-03-21T10:00:00.000Z","meetingGate":{"matchedItemId":"HJD00040","similarity":0.82,"appliedAt":"2026-03-21"}},"updates":[{"type":"feedback","note":"Initial review completed. (Anna Peters, 2026-03-29)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00233","type":"contribution","title":"Developed new onboarding checklist for field sales reps","description":"Developed new onboarding checklist for field sales reps. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Sanne Mulder","createdAt":"2026-03-21","weekStart":"2026-03-16","status":"resolved","meetingNeeded":false,"priority":"medium","dueDate":"","resolvedBy":"Damian de Groot","resolvedAt":"2026-04-16","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"pricing"},"assignedTo":"","stakeholders":["Laura de Vries","Pieter Vos"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00234","type":"challenge","title":"Field execution photo verification system latency issues","description":"Field execution photo verification system latency issues. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Anna Peters","createdAt":"2026-03-23","weekStart":"2026-03-23","status":"closed","meetingNeeded":false,"priority":"high","dueDate":"2026-05-27","resolvedBy":"Jonas Smit","resolvedAt":"2026-05-14","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"Joost Jacobs","stakeholders":["Thijs Willems","Joost Jacobs"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Joost Jacobs, 2026-04-30)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00235","type":"challenge","title":"Retailer annual business plan presentation content gaps","description":"Retailer annual business plan presentation content gaps. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"Trade Marketing","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Daan Meijer","createdAt":"2026-04-13","weekStart":"2026-04-13","status":"closed","meetingNeeded":false,"priority":"high","dueDate":"2026-05-24","resolvedBy":"Laura de Vries","resolvedAt":"2026-04-14","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"Damian de Groot","stakeholders":["Eva Bosman","Thijs Willems"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Jade Mulder, 2026-04-30)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00236","type":"challenge","title":"Supply chain cost-to-serve analysis data incomplete","description":"Supply chain cost-to-serve analysis data incomplete. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-04-16","weekStart":"2026-04-13","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-05-22","resolvedBy":"Damian de Groot","resolvedAt":"2026-04-28","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"pricing"},"assignedTo":"Ruben Smeets","stakeholders":["Joost Jacobs","Sophie van Dijk"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Fleur Hendriks, 2026-04-30)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00237","type":"challenge","title":"Trade marketing material waste reduction initiative stalled","description":"Trade marketing material waste reduction initiative stalled. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Fleur Hendriks","createdAt":"2026-04-16","weekStart":"2026-04-13","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-05-26","resolvedBy":"Rosa Brouwer","resolvedAt":"2026-05-23","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"External partner"},"assignedTo":"Alex Vermeer","stakeholders":["Damian de Groot","Jade Mulder"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Daan Meijer, 2026-04-18)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00238","type":"challenge","title":"Regional team communication gap on pricing policy changes","description":"Regional team communication gap on pricing policy changes. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Trade Marketing","assignedToDept":"","meetingLevel":"national_red","externalEmail":"","createdBy":"Jonas Smit","createdAt":"2026-02-23","weekStart":"2026-02-23","status":"assigned","meetingNeeded":true,"priority":"low","dueDate":"2026-04-09","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Pieter Vos","stakeholders":["Jade Mulder","Emma Visser"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Sophie van Dijk, 2026-02-28)"}]},
+  {"id":"HJD00239","type":"challenge","title":"E-commerce flash sale stock allocation process undefined","description":"E-commerce flash sale stock allocation process undefined. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Jumbo & Discounters","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Laura de Vries","createdAt":"2026-03-26","weekStart":"2026-03-23","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"2026-04-18","resolvedBy":"Jade Mulder","resolvedAt":"2026-04-20","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"stock"},"assignedTo":"Luuk van den Berg","stakeholders":["Fleur Hendriks","Anna Peters"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Luuk van den Berg, 2026-04-17)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00240","type":"challenge","title":"Retailer scorecard metrics disagreement on fill rate calculation","description":"Retailer scorecard metrics disagreement on fill rate calculation. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"Field Sales South","meetingLevel":"national_red","externalEmail":"","createdBy":"Femke de Graaf","createdAt":"2026-03-30","weekStart":"2026-03-30","status":"in_discussion","meetingNeeded":true,"priority":"medium","dueDate":"2026-05-06","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Ruben Smeets","stakeholders":["Emma Visser","Anna Peters"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Jonas Smit, 2026-04-07)"}]},
+  {"id":"HJD00241","type":"challenge","title":"Distribution centre labour scheduling inefficiency during peaks","description":"Distribution centre labour scheduling inefficiency during peaks. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Jonas Smit","createdAt":"2026-03-26","weekStart":"2026-03-23","status":"resolved","meetingNeeded":true,"priority":"high","dueDate":"2026-04-22","resolvedBy":"Thijs Willems","resolvedAt":"2026-05-05","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"External partner"},"assignedTo":"Luuk van den Berg","stakeholders":["Sanne Mulder","Joost Jacobs"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Rosa Brouwer, 2026-04-03)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00242","type":"challenge","title":"Promotional compliance monitoring automation project delayed","description":"Promotional compliance monitoring automation project delayed. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Alex Vermeer","createdAt":"2026-04-01","weekStart":"2026-03-30","status":"assigned","meetingNeeded":true,"priority":"low","dueDate":"2026-04-18","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Rosa Brouwer","stakeholders":["Mila Janssen","Eva Bosman"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Luuk van den Berg, 2026-04-07)"}]},
+  {"id":"HJD00243","type":"challenge","title":"Customer segmentation model refresh overdue for targeting","description":"Customer segmentation model refresh overdue for targeting. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Convenience & Petrol","assignedToDept":"","meetingLevel":"regional_red","externalEmail":"","createdBy":"Eva Bosman","createdAt":"2026-05-06","weekStart":"2026-05-04","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-05-11","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Femke de Graaf","Jade Mulder"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00244","type":"challenge","title":"Sales territory boundary dispute between two regions","description":"Sales territory boundary dispute between two regions. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Key Accounts Supermarkets","assignedToDept":"Trade Marketing","meetingLevel":"regional_red","externalEmail":"","createdBy":"Emma Visser","createdAt":"2026-05-08","weekStart":"2026-05-04","status":"escalated","meetingNeeded":true,"priority":"high","dueDate":"2026-05-13","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"Thijs Willems","stakeholders":["Lisa Dekker","Ruben Smeets"],"details":{"isRecurring":false,"escalationLevel":"senior_leadership","escalationTargetMeeting":"national_red","escalationMeetingDate":"2026-05-25","escalatedTo":"Sanne Mulder","escalationReason":"Requires higher-level coordination and cross-departmental alignment."},"updates":[{"type":"feedback","note":"Initial review completed. (Emma Visser, 2026-05-11)"}]},
+  {"id":"HJD00245","type":"celebration","title":"Field team achieved zero safety incidents for quarter","description":"Field team achieved zero safety incidents for quarter. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Jade Mulder","createdAt":"2026-05-06","weekStart":"2026-05-04","status":"resolved","meetingNeeded":false,"priority":"high","dueDate":"","resolvedBy":"Sophie van Dijk","resolvedAt":"2026-05-26","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"compliance"},"assignedTo":"","stakeholders":["Mark Jansen","Jonas Smit"],"details":{"isRecurring":false},"updates":[{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00246","type":"challenge","title":"Product quality complaint trend increasing in eastern region","description":"Product quality complaint trend increasing in eastern region. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Wholesalers","assignedToDept":"Operations","meetingLevel":"national_red","externalEmail":"","createdBy":"Joost Jacobs","createdAt":"2026-04-13","weekStart":"2026-04-13","status":"resolved","meetingNeeded":true,"priority":"high","dueDate":"2026-05-23","resolvedBy":"Thijs Willems","resolvedAt":"2026-05-14","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":{"rootCause":"People"},"assignedTo":"Niels Kuiper","stakeholders":["Ruben Smeets","Femke de Graaf"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Joost Jacobs, 2026-04-26)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00247","type":"challenge","title":"Direct store delivery pilot evaluation metrics not defined","description":"Direct store delivery pilot evaluation metrics not defined. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Field Sales South","assignedToDept":"IT","meetingLevel":"regional_red","externalEmail":"","createdBy":"Ruben Smeets","createdAt":"2026-03-04","weekStart":"2026-03-02","status":"new","meetingNeeded":true,"priority":"high","dueDate":"2026-03-08","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Mark Jansen","Joost Jacobs"],"details":{"isRecurring":false},"updates":[]},
+  {"id":"HJD00248","type":"challenge","title":"Annual promotional effectiveness review preparation behind schedule","description":"Annual promotional effectiveness review preparation behind schedule. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Revenue Growth Management","assignedToDept":"","meetingLevel":"team_weekly","externalEmail":"","createdBy":"Pieter Vos","createdAt":"2026-05-13","weekStart":"2026-05-11","status":"closed","meetingNeeded":true,"priority":"medium","dueDate":"2026-05-18","resolvedBy":"Pieter Vos","resolvedAt":"2026-05-19","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"Mila Janssen","stakeholders":["Damian de Groot","Tom Bakker"],"details":{"isRecurring":true},"updates":[{"type":"feedback","note":"Initial review completed. (Niels Kuiper, 2026-05-13)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
+  {"id":"HJD00249","type":"challenge","title":"Wholesale channel price parity concern with retail pricing","description":"Wholesale channel price parity concern with retail pricing. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"Sales Operations","assignedToDept":"","meetingLevel":"leadership_sync","externalEmail":"","createdBy":"Fleur Hendriks","createdAt":"2026-04-28","weekStart":"2026-04-27","status":"new","meetingNeeded":true,"priority":"medium","dueDate":"2026-05-26","resolvedBy":"","resolvedAt":"","solution":"","solutionTemplate":null,"assignedTo":"","stakeholders":["Niels Kuiper","Damian de Groot"],"details":{"isRecurring":true},"updates":[]},
+  {"id":"HJD00250","type":"challenge","title":"Field force mobile reporting tool battery drain issue","description":"Field force mobile reporting tool battery drain issue. Further investigation and cross-functional alignment required to address root cause and prevent recurrence.","department":"E-commerce Sales","assignedToDept":"Legal","meetingLevel":"regional_red","externalEmail":"","createdBy":"Lisa Dekker","createdAt":"2026-04-16","weekStart":"2026-04-13","status":"closed","meetingNeeded":true,"priority":"high","dueDate":"2026-06-01","resolvedBy":"Mila Janssen","resolvedAt":"2026-05-05","solution":"Resolved through cross-functional coordination and standard process application.","solutionTemplate":null,"assignedTo":"Fleur Hendriks","stakeholders":["Mark Jansen","Eva Bosman"],"details":{"isRecurring":false},"updates":[{"type":"feedback","note":"Initial review completed. (Mark Jansen, 2026-05-01)"},{"type":"solution_note","note":"Solution: Resolved through cross-functional coordination and standard process application."}]},
 ];
 
 let items = loadItems();
@@ -3060,11 +3412,14 @@ const ROOT_CAUSE_LABELS = {
 
 function buildRootCauseAnalytics() {
   const counts = {};
+  const itemIds = {};
   items.forEach((item) => {
     if (item.type !== "challenge") return;
     const rc = (item.solutionTemplate?.rootCause || "").toLowerCase().trim();
     if (rc) {
       counts[rc] = (counts[rc] || 0) + 1;
+      itemIds[rc] = itemIds[rc] || [];
+      itemIds[rc].push(item.id);
       return;
     }
     // Infer from corpus keywords
@@ -3072,6 +3427,8 @@ function buildRootCauseAnalytics() {
     for (const [key] of Object.entries(ROOT_CAUSE_LABELS)) {
       if (corpus.includes(key)) {
         counts[key] = (counts[key] || 0) + 1;
+        itemIds[key] = itemIds[key] || [];
+        itemIds[key].push(item.id);
         break;
       }
     }
@@ -3079,7 +3436,7 @@ function buildRootCauseAnalytics() {
   return Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
-    .map(([key, count]) => ({ label: ROOT_CAUSE_LABELS[key] || toLabel(key), count }));
+    .map(([key, count]) => ({ label: ROOT_CAUSE_LABELS[key] || toLabel(key), count, itemIds: itemIds[key] || [] }));
 }
 
 // ── Feature 9: Challenge Clustering ──────────────────────────────────────────
@@ -3115,19 +3472,93 @@ function buildChallengeClusters() {
   return Object.values(clusters).sort((a, b) => b.count - a.count);
 }
 
-// ── Feature 10: Meeting Efficiency Metrics ────────────────────────────────────
+// ── Feature 10: Meeting Efficiency Metrics (expanded KPI engine) ─────────────
+
+function calcItemManHours(item) {
+  const model = MEETING_COST_MODEL[item.meetingLevel] || MEETING_COST_MODEL.team_weekly;
+  return (model.durationMin / 60) * MEETING_PREP_MULTIPLIER * model.avgAttendees;
+}
 
 function buildEfficiencyMetrics() {
-  const skippedMeetings = items.filter((i) => i.meetingNeeded === false).length;
-  const reuseItems = items.filter((i) => i.details?.knowledgeReused).length;
-  const total = items.filter((i) => i.type === "challenge").length || 1;
+  const challenges = items.filter((i) => i.type === "challenge");
+  const total = challenges.length || 1;
+
+  // ── Meetings Avoided: items where meetingNeeded===false (from data) + session counter
+  const skippedFromData = challenges.filter((i) => i.meetingNeeded === false);
+  const skippedMeetings = skippedFromData.length + meetingsAvoidedCount;
+
+  // ── Man-Hours Saved: computed per item using meeting level cost model
+  const manHoursSaved = skippedFromData.reduce((sum, i) => sum + calcItemManHours(i), 0)
+    + (meetingsAvoidedCount * calcItemManHours({ meetingLevel: "regional_red" }));
+
+  // ── Knowledge Reuse: items with knowledgeReused flag (permanent) + session counter
+  const reuseItemsFromData = challenges.filter((i) => i.details?.knowledgeReused);
+  const reuseItems = reuseItemsFromData.length + knowledgeReuseCount;
   const reuseRate = Math.round((reuseItems / total) * 100);
-  const recurring = items.filter((i) => i.details?.isRecurring).length;
+
+  // ── Resolution Time: reused vs. fresh (traceable from timestamps)
+  const resolved = challenges.filter((i) => i.resolvedAt && i.createdAt);
+  const calcDays = (i) => Math.max(0, Math.ceil((new Date(i.resolvedAt) - new Date(i.createdAt)) / 864e5));
+  const reuseResolved = resolved.filter((i) => i.details?.knowledgeReused);
+  const freshResolved = resolved.filter((i) => !i.details?.knowledgeReused);
+  const avgReuseRes = reuseResolved.length
+    ? Math.round(reuseResolved.reduce((s, i) => s + calcDays(i), 0) / reuseResolved.length)
+    : null;
+  const avgFreshRes = freshResolved.length
+    ? Math.round(freshResolved.reduce((s, i) => s + calcDays(i), 0) / freshResolved.length)
+    : null;
+  const accelerationDays = (avgReuseRes !== null && avgFreshRes !== null)
+    ? avgFreshRes - avgReuseRes : null;
+
+  // ── First-Touch Resolution Rate: resolved without needing a meeting, ≤2 updates
+  const ftrrItems = resolved.filter((i) => i.meetingNeeded === false && (i.updates || []).length <= 2);
+  const ftrr = Math.round((ftrrItems.length / (resolved.length || 1)) * 100);
+
+  // ── Escalation Avoidance Rate: stayed at team_weekly or regional_red
+  const lowLevels = ["team_weekly", "regional_red"];
+  const escalAvoid = resolved.filter((i) => lowLevels.includes(i.meetingLevel));
+  const ear = Math.round((escalAvoid.length / (resolved.length || 1)) * 100);
+
+  // ── Knowledge Compounding Index: solutions reused as source by other items
+  const sourcedIds = new Set(
+    challenges
+      .filter((i) => i.details?.knowledgeReuseSource)
+      .map((i) => i.details.knowledgeReuseSource)
+  );
+  const resolvedWithSolution = resolved.filter((i) => i.solution && i.solution.length > 10);
+  const kci = resolvedWithSolution.length
+    ? Math.round((sourcedIds.size / resolvedWithSolution.length) * 100) : 0;
+
+  // ── Meeting Level Breakdown (open items)
+  const levelCounts = {};
+  challenges.filter((i) => i.status === "new" || i.status === "assigned" || i.status === "in_discussion").forEach((i) => {
+    const lvl = i.meetingLevel || "team_weekly";
+    levelCounts[lvl] = (levelCounts[lvl] || 0) + 1;
+  });
+
+  // ── Root Cause top 3
+  const rcData = buildRootCauseAnalytics().slice(0, 3);
+
+  // ── Recurring
+  const recurring = challenges.filter((i) => i.details?.isRecurring).length;
+
   return {
-    skippedMeetings: skippedMeetings + meetingsAvoidedCount,
-    reuseItems: reuseItems + knowledgeReuseCount,
+    skippedMeetings,
+    manHoursSaved: Math.round(manHoursSaved * 10) / 10,
+    reuseItems,
     reuseRate,
+    avgReuseRes,
+    avgFreshRes,
+    accelerationDays,
+    ftrr,
+    ear,
+    kci,
+    levelCounts,
+    rcData,
     recurring,
+    totalChallenges: total,
+    resolvedCount: resolved.length,
+    reuseSourceCount: sourcedIds.size,
   };
 }
 
@@ -3366,11 +3797,11 @@ function findMeetingGateMatch(candidateText) {
 }
 
 function getCreateSimilarPool() {
-  const resolvedChallenges = items.filter((item) => (
-    item.type === "challenge" && ["resolved", "closed"].includes(item.status)
+  return items.filter((item) => (
+    item.type === "challenge" &&
+    ["resolved", "closed"].includes(item.status) &&
+    (item.solution || "").trim().length >= 12
   ));
-  if (resolvedChallenges.length) return resolvedChallenges;
-  return items.filter((item) => item.type === "challenge");
 }
 
 function findCreateSimilarCases(query, limit = CREATE_SIMILAR_LIMIT) {
@@ -3406,6 +3837,57 @@ function clearCreateDescriptionSuggestions() {
   host.classList.add("is-hidden");
 }
 
+function hasDescriptionTimeline(text) {
+  return /\b(today|yesterday|tomorrow|week|weeks|month|months|quarter|q[1-4]|since|deadline|due|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)\b/i.test(text || "");
+}
+
+function hasDescriptionOwner(text) {
+  return /\b(owner|responsible|assigned|team|lead|manager|contact|stakeholder)\b/i.test(text || "");
+}
+
+function buildDescriptionAssistantSuggestions({ title, description, stakeholders, assignedDept }) {
+  const combined = `${title} ${description}`.trim();
+  const charCount = description.length;
+  const suggestions = [];
+
+  if (charCount < 120) {
+    suggestions.push({
+      title: "Add more detail",
+      body: `Current description length is ${charCount} characters. Challenges work best with at least 120 characters. Add what started the issue, business impact, and actions already tried.`,
+    });
+  }
+
+  if (!/\d/.test(combined)) {
+    suggestions.push({
+      title: "Include quantitative impact",
+      body: "Add numbers where possible, for example affected volume, delayed weeks, or revenue impact. Concrete numbers improve prioritization.",
+    });
+  }
+
+  if (!hasDescriptionOwner(combined) && !stakeholders.length && !assignedDept) {
+    suggestions.push({
+      title: "Name an owner",
+      body: "Mention who is responsible or which team is leading the resolution so routing and follow-up are clear.",
+    });
+  }
+
+  if (!hasDescriptionTimeline(combined)) {
+    suggestions.push({
+      title: "Add timeline context",
+      body: "Include timing details such as when the issue started, deadline expectations, or whether the trend is increasing.",
+    });
+  }
+
+  if (!suggestions.length) {
+    suggestions.push({
+      title: "Description quality is strong",
+      body: "The current description has useful depth and structure. You can proceed or refine wording further.",
+    });
+  }
+
+  return suggestions;
+}
+
 function renderCreateDescriptionSuggestions() {
   const typeSelect = document.querySelector("#item-type");
   const descriptionInput = document.querySelector("#create-description-input");
@@ -3414,42 +3896,70 @@ function renderCreateDescriptionSuggestions() {
 
   const type = typeSelect.value;
   const description = String(descriptionInput.value || "").trim();
-  const typedWordCount = normalizeSearchText(description).split(/\s+/).filter(Boolean).length;
-  if (type !== "challenge" || typedWordCount < CREATE_SIMILAR_MIN_WORDS) {
+  const descriptionWordCount = normalizeSearchText(description).split(/\s+/).filter(Boolean).length;
+  if (type !== "challenge" || descriptionWordCount < CREATE_SIMILAR_MIN_WORDS) {
     clearCreateDescriptionSuggestions();
     return;
   }
 
   const titleInput = document.querySelector('#new-item-form [name="title"]');
+  const stakeholderInput = document.querySelector('#new-item-form [name="stakeholders"]');
+  const assignedDeptSelect = document.querySelector("#assign-to-dept");
   const title = String(titleInput?.value || "").trim();
+  const stakeholders = uniqueList(String(stakeholderInput?.value || "").split(","));
+  const assignedDept = String(assignedDeptSelect?.value || "").trim();
   const query = `${title} ${description}`.trim();
-  const matches = findCreateSimilarCases(query);
-
-  if (!matches.length) {
-    clearCreateDescriptionSuggestions();
-    return;
-  }
+  const queryWordCount = normalizeSearchText(query).split(/\s+/).filter(Boolean).length;
+  const matches = queryWordCount >= CREATE_SIMILAR_MIN_WORDS
+    ? findCreateSimilarCases(query)
+    : [];
+  const suggestions = buildDescriptionAssistantSuggestions({ title, description, stakeholders, assignedDept });
+  const totalSuggestionCount = suggestions.length + (matches.length ? 1 : 0);
+  const similarCasesHTML = matches.length
+    ? matches.map(({ item, score }) => {
+      const matchPct = Math.max(1, Math.round(Math.min(score, 0.99) * 100));
+      const statusLabel = item.status === "closed" ? "Closed" : "Resolved";
+      return `
+        <button type="button" class="desc-assistant-case" data-action="open-create-similar" data-item-id="${item.id}">
+          <div class="desc-assistant-case-head">
+            <span class="desc-assistant-case-id">${escapeHtml(item.id)}</span>
+            <span class="desc-assistant-case-score">${matchPct}% match</span>
+          </div>
+          <p class="desc-assistant-case-title">${escapeHtml(item.title)}</p>
+          <p class="desc-assistant-case-meta">${statusLabel} · ${escapeHtml(item.department)}</p>
+          ${(item.solution || "").trim()
+            ? `<p class="desc-assistant-case-solution">${escapeHtml(truncate(item.solution, 140))}</p>`
+            : ""}
+        </button>
+      `;
+    }).join("")
+    : `<p class="desc-assistant-empty">No strong resolved matches yet. Add more specific context to improve matching.</p>`;
 
   host.innerHTML = `
-    <div class="create-similar-head">
-      <p class="create-similar-title">Similar Archive Cases</p>
-      <p class="create-similar-count">${matches.length} match${matches.length === 1 ? "" : "es"}</p>
+    <div class="desc-assistant-panel">
+      <div class="desc-assistant-head">
+        <p class="desc-assistant-title">Description Assistant</p>
+        <span class="desc-assistant-count">${totalSuggestionCount} suggestion${totalSuggestionCount === 1 ? "" : "s"}</span>
+      </div>
+      <div class="desc-assistant-list">
+        ${suggestions.map((entry) => `
+          <article class="desc-assistant-item">
+            <h4>${escapeHtml(entry.title)}</h4>
+            <p>${escapeHtml(entry.body)}</p>
+          </article>
+        `).join("")}
+      </div>
+      <div class="desc-assistant-similar">
+        <div class="desc-assistant-similar-head">
+          <p>Similar resolved cases</p>
+          <span>${matches.length} match${matches.length === 1 ? "" : "es"}</span>
+        </div>
+        <div class="desc-assistant-cases">
+          ${similarCasesHTML}
+        </div>
+        <p class="desc-assistant-foot">Click a case to open details and reuse context.</p>
+      </div>
     </div>
-    <div class="create-similar-list">
-      ${matches.map(({ item, score }) => {
-    const matchPct = Math.max(1, Math.round(Math.min(score, 0.99) * 100));
-    return `<button type="button" class="create-similar-item" data-action="open-create-similar" data-item-id="${item.id}">
-          <div class="create-similar-item-top">
-            <span class="create-similar-item-id">${escapeHtml(item.id)}</span>
-            <span class="create-similar-item-score">${matchPct}% match</span>
-          </div>
-          <p class="create-similar-item-case">${escapeHtml(item.title)}</p>
-          <p class="create-similar-item-meta">${escapeHtml(toLabel(item.status))} - ${escapeHtml(item.department)}</p>
-          ${(item.solution || "").trim() ? `<p class="create-similar-item-snippet">${escapeHtml(truncate(item.solution, 120))}</p>` : ""}
-        </button>`;
-  }).join("")}
-    </div>
-    <p class="create-similar-foot">Click a case to open details and reuse context.</p>
   `;
   host.classList.remove("is-hidden");
 }
@@ -4024,23 +4534,53 @@ function renderMeetingWeekContext() {
 function renderStats() {
   const openItems = items.filter((item) => isOpenStatus(item.status));
   const overdue = openItems.filter((item) => isOverdue(item)).length;
-  document.querySelector("#metric-open").textContent = String(openItems.length);
-  document.querySelector("#metric-overdue").textContent = String(overdue);
 
-  const kpis = [
-    { label: "New", value: getStatusCount("new") },
-    { label: "Assigned", value: getStatusCount("assigned") },
-    { label: "Escalated", value: getStatusCount("escalated") },
-    { label: "Resolved", value: getStatusCount("resolved") },
-  ];
+  // Hero metrics — only visible for supervisor
+  const heroMetrics = document.querySelector(".hero-metrics");
+  if (heroMetrics) heroMetrics.style.display = isSupervisorView() ? "" : "none";
+
+  if (isSupervisorView()) {
+    const metricOpen = document.querySelector("#metric-open");
+    const metricOverdue = document.querySelector("#metric-overdue");
+    if (metricOpen) metricOpen.textContent = String(openItems.length);
+    if (metricOverdue) metricOverdue.textContent = String(overdue);
+
+    // Make hero metric tiles clickable
+    document.querySelectorAll(".metric-tile[data-metric-key]").forEach((tile) => {
+      tile.style.cursor = "pointer";
+    });
+    const tileOpen = document.querySelector(".metric-tile[data-metric-key='open']");
+    const tileOverdue = document.querySelector(".metric-tile[data-metric-key='overdue']");
+    if (tileOpen) {
+      tileOpen._metricIds = openItems.map((i) => i.id);
+    }
+    if (tileOverdue) {
+      tileOverdue._metricIds = openItems.filter((i) => isOverdue(i)).map((i) => i.id);
+    }
+  }
+
+  // KPI grid — only for supervisor
+  const kpiPanel = document.querySelector(".dashboard-kpi-panel");
+  if (kpiPanel) kpiPanel.style.display = isSupervisorView() ? "" : "none";
+
+  if (!isSupervisorView()) return;
+
+  const statusGroups = {
+    "new":      { label: "New",      ids: items.filter((i) => i.status === "new").map((i) => i.id) },
+    "assigned": { label: "Assigned", ids: items.filter((i) => i.status === "assigned").map((i) => i.id) },
+    "escalated":{ label: "Escalated",ids: items.filter((i) => i.status === "escalated").map((i) => i.id) },
+    "resolved": { label: "Resolved", ids: items.filter((i) => i.status === "resolved").map((i) => i.id) },
+  };
 
   const kpiGrid = document.querySelector("#kpi-grid");
   kpiGrid.innerHTML = "";
-  kpis.forEach((kpi, idx) => {
+  Object.entries(statusGroups).forEach(([key, { label, ids }], idx) => {
     const card = document.createElement("article");
-    card.className = "kpi-card";
+    card.className = "kpi-card kpi-card-clickable";
     card.style.setProperty("--delay", `${idx * 0.06}s`);
-    card.innerHTML = `<h3>${kpi.label}</h3><p>${kpi.value}</p>`;
+    card.title = `Click to view ${label} cases`;
+    card.innerHTML = `<h3>${label}</h3><p>${ids.length}</p><span class="kpi-card-hint">View cases →</span>`;
+    card.addEventListener("click", () => openAnalyticsPopup(`${label} Cases`, ids));
     kpiGrid.appendChild(card);
   });
 }
@@ -4095,18 +4635,27 @@ function openDashboardDropdown(sectionKey) {
   card.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
+function syncSettingsNavLabel() {
+  const settingsLabel = document.querySelector("#settings-nav-label");
+  if (!settingsLabel) return;
+  settingsLabel.textContent = isSupervisorView() ? "Admin Settings" : "Settings";
+}
+
 function renderPersonalPanel() {
   const panel = document.querySelector("#left-rail");
   if (!panel) return;
 
   const user = _currentUser();
   const roleLabel = isSupervisorView() ? "Supervisor" : "Sales Representative";
-  const relevant = items.filter((item) => item.createdBy === user || item.assignedTo === user || item.stakeholders?.includes(user));
+  const deptLabelForSupervisor = "All Departments";
+  const relevant = isSupervisorView()
+    ? items
+    : items.filter((item) => item.createdBy === user || item.assignedTo === user || item.stakeholders?.includes(user));
   const openItems = relevant.filter((item) => isOpenStatus(item.status));
   const resolvedItems = relevant.filter((item) => item.status === "resolved" || item.status === "closed");
   const likesGiven = items.filter((item) => (item.type === "celebration" || item.type === "contribution") && uniqueList(item.likedBy || []).includes(user)).length;
   const deptCandidates = uniqueList(relevant.map((item) => item.department));
-  const deptLabel = activeDeptFilter !== "all" ? activeDeptFilter : (deptCandidates[0] || "Cross-functional");
+  const deptLabel = isSupervisorView() ? deptLabelForSupervisor : (activeDeptFilter !== "all" ? activeDeptFilter : (deptCandidates[0] || "Cross-functional"));
   const initials = user
     .split(/\s+/)
     .filter(Boolean)
@@ -4130,6 +4679,7 @@ function renderPersonalPanel() {
   if (openEl) openEl.textContent = String(openItems.length);
   if (resolvedEl) resolvedEl.textContent = String(resolvedItems.length);
   if (likesEl) likesEl.textContent = String(likesGiven);
+  syncSettingsNavLabel();
 
   if (!focusEl) return;
   const priorityRank = { high: 0, medium: 1, low: 2 };
@@ -4342,9 +4892,13 @@ function favoriteFocusItemHTML(item) {
   </div>`;
 }
 
+const SALES_REP_NAME = "Damian de Groot";
+const SUPERVISOR_NAME = "Nadia van der Berg";
+
 function _currentUser() {
+  if (isSupervisorView()) return SUPERVISOR_NAME;
   const el = document.querySelector('[name="createdBy"]');
-  return (el?.value || "Name Employer").trim();
+  return (el?.value || SALES_REP_NAME).trim();
 }
 
 function renderMyFocus() {
@@ -4429,19 +4983,21 @@ function renderMeeting() {
       const suggestionHTML = escalationSuggestion
         ? `<p class="meeting-suggestion">Suggestion: overdue + high priority. Consider escalation.</p>`
         : "";
-      const quickEscalateBtn = canManage && escalationSuggestion
+      const quickEscalateBtn = escalationSuggestion
         ? `<button class="mini-btn mini-btn-warn" data-action="quick-escalate" data-item-id="${item.id}">Quick Escalate</button>`
         : "";
-      const actionsHTML = canManage
-        ? `
+      const editBtn = canManage
+        ? `<button class="mini-btn mini-btn-edit" data-action="edit" data-item-id="${item.id}">✎ Edit</button>`
+        : "";
+      const actionsHTML = `
           <button class="mini-btn" data-action="assign" data-item-id="${item.id}">Assign</button>
           <button class="mini-btn" data-action="escalate" data-item-id="${item.id}">Escalate</button>
           ${quickEscalateBtn}
           <button class="mini-btn" data-action="resolve" data-item-id="${item.id}">Resolve</button>
           <button class="mini-btn" data-action="defer" data-item-id="${item.id}">Defer to next week</button>
           <button class="mini-btn" data-action="details" data-item-id="${item.id}">Details</button>
-        `
-        : `<button class="mini-btn" data-action="details" data-item-id="${item.id}">Details</button>`;
+          ${editBtn}
+        `;
 
       return `
       <article class="meeting-item">
@@ -4479,6 +5035,9 @@ function renderArchive() {
     container.innerHTML = filtered.map((item) => {
       const support = item.assignedToDept ? `<span class="arch-support-tag">&rarr; ${escapeHtml(item.assignedToDept)}</span>` : "";
       const isFav = _getFavorites().includes(item.id);
+      const editBtn = isSupervisorView()
+        ? `<button class="arc-mini arc-mini-edit" data-arc="edit" data-item-id="${item.id}" title="Edit">&#9998;</button>`
+        : "";
       const desc = truncate(item.description, 80);
       return `<div class="archive-card" data-item-id="${item.id}">
         <div class="archive-card-top"><div class="item-meta">
@@ -4492,6 +5051,7 @@ function renderArchive() {
           <div class="archive-card-btns">
             <button class="arc-mini ${isFav ? "is-fav" : ""}" data-arc="fav" data-item-id="${item.id}" title="Favorite">${isFav ? "&#x2605;" : "&#x2606;"}</button>
             <button class="arc-mini" data-arc="detail" data-item-id="${item.id}" title="Detail">&#x1F50D;</button>
+            ${editBtn}
             <button class="arc-mini" data-arc="assistant" data-item-id="${item.id}" title="Ask AI">&#x1F4AC;</button>
           </div>
           <p class="archive-card-desc">${escapeHtml(desc)}</p>
@@ -4758,6 +5318,399 @@ function buildResolutionTimeAnalytics() {
   return { avgDays: avg, slaMetPct: Math.round((met / res.length) * 100), fastest: Math.min(...times), slowest: Math.max(...times), total: res.length };
 }
 
+function getAdminEditDepartmentOptions() {
+  const fromCreateForm = Array.from(document.querySelectorAll("#create-department option"))
+    .map((option) => ({ value: option.value, label: option.textContent?.trim() || option.value }));
+  const fromItems = uniqueList(items.map((item) => item.department))
+    .map((value) => ({ value, label: value }));
+  const map = new Map();
+  [...fromCreateForm, ...fromItems].forEach((entry) => {
+    if (!entry.value) return;
+    if (!map.has(entry.value)) map.set(entry.value, entry.label || entry.value);
+  });
+  return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+}
+
+function getAdminEditSupportDepartmentOptions() {
+  const fromCreateForm = Array.from(document.querySelectorAll("#assign-to-dept option"))
+    .map((option) => ({ value: option.value, label: option.textContent?.trim() || option.value }));
+  const fromItems = uniqueList(items.map((item) => item.assignedToDept || ""))
+    .map((value) => ({ value, label: value || "-- No assignment yet --" }));
+  const map = new Map();
+  map.set("", "-- No assignment yet --");
+  [...fromCreateForm, ...fromItems].forEach((entry) => {
+    if (!map.has(entry.value)) map.set(entry.value, entry.label || entry.value);
+  });
+  return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+}
+
+function getAdminEditMeetingOptions() {
+  return Object.entries(MEETING_LAYERS).map(([value, label]) => ({
+    value,
+    label: label.replace(/\s+Meeting(?:\s*\([^)]+\))?/i, "").trim(),
+  }));
+}
+
+function populateAdminEditSelect(selectEl, options, selectedValue) {
+  if (!selectEl) return;
+  selectEl.innerHTML = "";
+  options.forEach((entry) => {
+    const option = document.createElement("option");
+    option.value = entry.value;
+    option.textContent = entry.label;
+    selectEl.appendChild(option);
+  });
+  const selected = String(selectedValue || "");
+  if (selected && !options.some((entry) => entry.value === selected)) {
+    const fallback = document.createElement("option");
+    fallback.value = selected;
+    fallback.textContent = selected;
+    selectEl.appendChild(fallback);
+  }
+  selectEl.value = selected;
+}
+
+function setAdminEditTypeState(modal, itemType) {
+  if (!modal) return;
+  modal.querySelectorAll("[data-edit-type-panel]").forEach((panel) => {
+    panel.classList.toggle("is-hidden", panel.dataset.editTypePanel !== itemType);
+  });
+  const heading = modal.querySelector("#admin-edit-type-heading");
+  if (heading) heading.textContent = `${toLabel(itemType)} Details`;
+}
+
+function closeAdminEditModal() {
+  const modal = document.querySelector("#item-edit-modal");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function ensureAdminEditModal() {
+  let modal = document.querySelector("#item-edit-modal");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.className = "modal admin-edit-modal";
+  modal.id = "item-edit-modal";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="modal-card admin-edit-card">
+      <div class="admin-edit-header">
+        <div class="admin-edit-header-copy">
+          <span class="admin-settings-badge">Admin Settings</span>
+          <h3 id="admin-edit-title">Edit Item</h3>
+        </div>
+        <button type="button" class="admin-edit-close" id="admin-edit-close" aria-label="Close">✕</button>
+      </div>
+      <div class="admin-edit-divider"></div>
+      <form id="admin-edit-form" class="admin-edit-form">
+        <div class="admin-edit-grid">
+          <section class="admin-edit-col">
+            <h4 class="admin-edit-section-title">Core Details</h4>
+            <label>Type
+              <select name="itemType" id="admin-edit-type">
+                <option value="challenge">Challenge</option>
+                <option value="contribution">Contribution</option>
+                <option value="celebration">Celebration</option>
+              </select>
+            </label>
+            <label>Title
+              <input name="title" id="admin-edit-title-input" type="text" required />
+            </label>
+            <label>Description
+              <textarea name="description" id="admin-edit-description" rows="4" required></textarea>
+            </label>
+            <label>Status
+              <select name="status" id="admin-edit-status">
+                <option value="new">New</option>
+                <option value="assigned">Assigned</option>
+                <option value="in_discussion">In Discussion</option>
+                <option value="escalated">Escalated</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            </label>
+            <label>Priority
+              <select name="priority" id="admin-edit-priority">
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </label>
+            <label>Due Date
+              <input name="dueDate" id="admin-edit-due-date" type="date" />
+            </label>
+            <label>Meeting Level
+              <select name="meetingLevel" id="admin-edit-meeting-level"></select>
+            </label>
+          </section>
+          <section class="admin-edit-col">
+            <h4 class="admin-edit-section-title">People &amp; Assignment</h4>
+            <label>Created By
+              <input name="createdBy" id="admin-edit-created-by" type="text" />
+            </label>
+            <label>Owner / Assigned To
+              <input name="assignedTo" id="admin-edit-assigned-to" type="text" />
+            </label>
+            <label>Stakeholders
+              <input name="stakeholders" id="admin-edit-stakeholders" type="text" />
+            </label>
+            <label>Department
+              <select name="department" id="admin-edit-department"></select>
+            </label>
+            <label>Assign to Support Dept
+              <select name="assignedToDept" id="admin-edit-assigned-dept"></select>
+            </label>
+            <label>External Email
+              <input name="externalEmail" id="admin-edit-external-email" type="email" placeholder="Optional external contact" />
+            </label>
+            <h4 class="admin-edit-section-title">Solution</h4>
+            <label>Solution / Resolution Notes
+              <textarea name="solution" id="admin-edit-solution" rows="4" placeholder="Documented solution or outcome"></textarea>
+            </label>
+          </section>
+        </div>
+
+        <section class="admin-edit-type-panel">
+          <h4 class="admin-edit-section-title" id="admin-edit-type-heading">Challenge Details</h4>
+
+          <div data-edit-type-panel="challenge" class="admin-edit-type-grid">
+            <label>Recurring?
+              <select name="isRecurring" id="admin-edit-recurring">
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </label>
+            <label>Escalation Level
+              <select name="escalationLevel" id="admin-edit-escalation-level">
+                <option value="none">None</option>
+                <option value="team_lead">Team Lead</option>
+                <option value="senior_leadership">Senior Leadership</option>
+              </select>
+            </label>
+            <label class="admin-edit-full">Related Item Code
+              <input name="relatedItemCode" id="admin-edit-related-item" type="text" placeholder="Optional" />
+            </label>
+          </div>
+
+          <div data-edit-type-panel="contribution" class="admin-edit-type-grid is-hidden">
+            <label>Topic Tag
+              <input name="topicTag" id="admin-edit-topic-tag" type="text" />
+            </label>
+            <label>Target Audience
+              <input name="targetAudience" id="admin-edit-target-audience" type="text" />
+            </label>
+          </div>
+
+          <div data-edit-type-panel="celebration" class="admin-edit-type-grid is-hidden">
+            <label>Milestone Type
+              <input name="milestoneType" id="admin-edit-milestone-type" type="text" />
+            </label>
+            <label>Audience Note
+              <input name="audienceNote" id="admin-edit-audience-note" type="text" />
+            </label>
+          </div>
+        </section>
+
+        <div class="admin-edit-footer">
+          <button type="button" class="mini-btn" id="admin-edit-cancel">Cancel</button>
+          <button type="submit" class="admin-btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeBtn = modal.querySelector("#admin-edit-close");
+  if (closeBtn) closeBtn.addEventListener("click", closeAdminEditModal);
+  const cancelBtn = modal.querySelector("#admin-edit-cancel");
+  if (cancelBtn) cancelBtn.addEventListener("click", closeAdminEditModal);
+
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeAdminEditModal();
+  });
+
+  const typeSelect = modal.querySelector("#admin-edit-type");
+  if (typeSelect) {
+    typeSelect.addEventListener("change", () => {
+      setAdminEditTypeState(modal, typeSelect.value);
+    });
+  }
+
+  const form = modal.querySelector("#admin-edit-form");
+  if (form) {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const itemId = form.dataset.itemId;
+      const item = items.find((entry) => entry.id === itemId);
+      if (!item) return;
+
+      const data = new FormData(form);
+      const nextType = String(data.get("itemType") || item.type);
+      const nextTitle = String(data.get("title") || "").trim();
+      const nextDescription = String(data.get("description") || "").trim();
+      const nextStatus = String(data.get("status") || item.status);
+      const nextPriority = String(data.get("priority") || item.priority);
+      const nextDueDate = String(data.get("dueDate") || "").trim();
+      const nextMeetingLevel = String(data.get("meetingLevel") || item.meetingLevel || "team_weekly");
+      const nextCreatedBy = String(data.get("createdBy") || "").trim();
+      const nextAssignedTo = String(data.get("assignedTo") || "").trim();
+      const nextStakeholders = uniqueList(String(data.get("stakeholders") || "").split(","));
+      const nextDepartment = String(data.get("department") || "").trim();
+      const nextAssignedDept = String(data.get("assignedToDept") || "").trim();
+      const nextExternalEmail = String(data.get("externalEmail") || "").trim();
+      const nextSolution = String(data.get("solution") || "").trim();
+
+      if (!nextTitle || !nextDescription || !nextDepartment) {
+        showToast("Please complete title, description, and department.");
+        return;
+      }
+      if (!["challenge", "contribution", "celebration"].includes(nextType)) {
+        showToast("Type is not valid.");
+        return;
+      }
+      if (!["new", "assigned", "in_discussion", "escalated", "resolved", "closed"].includes(nextStatus)) {
+        showToast("Status is not valid.");
+        return;
+      }
+      if (!["high", "medium", "low"].includes(nextPriority)) {
+        showToast("Priority is not valid.");
+        return;
+      }
+      if (nextDueDate && !/^\d{4}-\d{2}-\d{2}$/.test(nextDueDate)) {
+        showToast("Due date must use YYYY-MM-DD.");
+        return;
+      }
+      if (nextExternalEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextExternalEmail)) {
+        showToast("External email format is not valid.");
+        return;
+      }
+
+      const details = { ...(item.details || {}) };
+      if (nextType === "challenge") {
+        details.isRecurring = String(data.get("isRecurring") || "no") === "yes";
+        details.escalationLevel = String(data.get("escalationLevel") || "none");
+        details.relatedItemCode = String(data.get("relatedItemCode") || "").trim();
+        delete details.topicTag;
+        delete details.targetAudience;
+        delete details.milestoneType;
+        delete details.audienceNote;
+      } else if (nextType === "contribution") {
+        details.topicTag = String(data.get("topicTag") || "").trim();
+        details.targetAudience = String(data.get("targetAudience") || "").trim();
+        delete details.isRecurring;
+        delete details.escalationLevel;
+        delete details.relatedItemCode;
+        delete details.milestoneType;
+        delete details.audienceNote;
+      } else {
+        details.milestoneType = String(data.get("milestoneType") || "").trim();
+        details.audienceNote = String(data.get("audienceNote") || "").trim();
+        delete details.isRecurring;
+        delete details.escalationLevel;
+        delete details.relatedItemCode;
+        delete details.topicTag;
+        delete details.targetAudience;
+      }
+
+      const wasResolved = item.status === "resolved" || item.status === "closed";
+      const isResolved = nextStatus === "resolved" || nextStatus === "closed";
+
+      item.type = nextType;
+      item.title = nextTitle;
+      item.description = nextDescription;
+      item.status = nextStatus;
+      item.priority = nextPriority;
+      item.dueDate = nextDueDate;
+      item.meetingLevel = nextMeetingLevel;
+      item.createdBy = nextCreatedBy || item.createdBy || _currentUser();
+      item.assignedTo = nextAssignedTo;
+      item.stakeholders = nextStakeholders;
+      item.department = nextDepartment;
+      item.assignedToDept = nextAssignedDept;
+      item.externalEmail = nextExternalEmail;
+      item.solution = nextSolution;
+      item.details = details;
+      if (nextType !== "challenge") item.meetingNeeded = false;
+
+      if (isResolved && !item.resolvedAt) item.resolvedAt = todayISO();
+      if (isResolved && !item.resolvedBy) item.resolvedBy = nextAssignedTo || _currentUser();
+      if (!isResolved && wasResolved) {
+        item.resolvedAt = "";
+        item.resolvedBy = "";
+      }
+
+      item.updates = item.updates || [];
+      item.updates.push({ type: "meeting_note", note: `Item edited by ${_currentUser()} via Admin Settings.` });
+      meetingLog.unshift(`${item.id}: Edited by ${_currentUser()}.`);
+
+      const drawerOpen = document.querySelector("#detail-drawer")?.classList.contains("is-open");
+      saveItems();
+      closeAdminEditModal();
+      refreshAll();
+      if (drawerOpen) openDetailDrawer(item.id);
+      showToast(`${item.id} updated`);
+    });
+  }
+
+  return modal;
+}
+
+function openEditItemPrompt(itemId) {
+  if (!requireSupervisorAccess("Item editing")) return;
+  const item = items.find((entry) => entry.id === itemId);
+  if (!item) return;
+
+  const modal = ensureAdminEditModal();
+  const form = modal.querySelector("#admin-edit-form");
+  if (!form) return;
+  form.dataset.itemId = item.id;
+
+  const deptSelect = modal.querySelector("#admin-edit-department");
+  const supportSelect = modal.querySelector("#admin-edit-assigned-dept");
+  const meetingSelect = modal.querySelector("#admin-edit-meeting-level");
+
+  populateAdminEditSelect(deptSelect, getAdminEditDepartmentOptions(), item.department);
+  populateAdminEditSelect(supportSelect, getAdminEditSupportDepartmentOptions(), item.assignedToDept || "");
+  populateAdminEditSelect(meetingSelect, getAdminEditMeetingOptions(), item.meetingLevel || "team_weekly");
+
+  const details = item.details || {};
+  modal.querySelector("#admin-edit-title").textContent = `Edit: ${item.id}`;
+  modal.querySelector("#admin-edit-type").value = item.type;
+  modal.querySelector("#admin-edit-title-input").value = item.title || "";
+  modal.querySelector("#admin-edit-description").value = item.description || "";
+  modal.querySelector("#admin-edit-status").value = item.status || "new";
+  modal.querySelector("#admin-edit-priority").value = item.priority || "medium";
+  modal.querySelector("#admin-edit-due-date").value = item.dueDate || "";
+  modal.querySelector("#admin-edit-created-by").value = item.createdBy || "";
+  modal.querySelector("#admin-edit-assigned-to").value = item.assignedTo || "";
+  modal.querySelector("#admin-edit-stakeholders").value = (item.stakeholders || []).join(", ");
+  modal.querySelector("#admin-edit-external-email").value = item.externalEmail || "";
+  modal.querySelector("#admin-edit-solution").value = item.solution || "";
+
+  const recurringSelect = modal.querySelector("#admin-edit-recurring");
+  if (recurringSelect) recurringSelect.value = details.isRecurring ? "yes" : "no";
+  const escalationLevelSelect = modal.querySelector("#admin-edit-escalation-level");
+  if (escalationLevelSelect) escalationLevelSelect.value = details.escalationLevel || "none";
+  const relatedItemInput = modal.querySelector("#admin-edit-related-item");
+  if (relatedItemInput) relatedItemInput.value = details.relatedItemCode || "";
+
+  const topicTagInput = modal.querySelector("#admin-edit-topic-tag");
+  if (topicTagInput) topicTagInput.value = details.topicTag || "";
+  const targetAudienceInput = modal.querySelector("#admin-edit-target-audience");
+  if (targetAudienceInput) targetAudienceInput.value = details.targetAudience || "";
+  const milestoneTypeInput = modal.querySelector("#admin-edit-milestone-type");
+  if (milestoneTypeInput) milestoneTypeInput.value = details.milestoneType || "";
+  const audienceNoteInput = modal.querySelector("#admin-edit-audience-note");
+  if (audienceNoteInput) audienceNoteInput.value = details.audienceNote || "";
+
+  setAdminEditTypeState(modal, item.type);
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+}
+
 function openDetailDrawer(itemId) {
   const item = items.find((entry) => entry.id === itemId);
   if (!item) return;
@@ -4789,7 +5742,7 @@ function openDetailDrawer(itemId) {
        </div>`
     : "";
 
-  const similarityExplorerHTML = canManage && isChallenge ? renderSimilarityExplorer(item) : "";
+  const similarityExplorerHTML = isChallenge ? renderSimilarityExplorer(item) : "";
 
   // V2: Department assignment + email button
   const deptEmail = item.assignedToDept ? (DEPARTMENT_EMAILS[item.assignedToDept] || "") : "";
@@ -4799,7 +5752,7 @@ function openDetailDrawer(itemId) {
   ) : "";
   const deptAssignMeta = isChallenge && item.assignedToDept
     ? `<div class="detail-section">
-        <h4>Support Department</h4>
+        <h4>Support Department ${infoIcon("The back-office department assigned to help resolve this challenge. A group email is available to notify them directly.")}</h4>
         <div class="detail-kv-grid">
           <div class="detail-kv-row">
             <span class="detail-kv-label">Assigned to</span>
@@ -4816,15 +5769,15 @@ function openDetailDrawer(itemId) {
 
   const externalEmailMeta = item.externalEmail ? `${item.externalEmail} (email)` : "None";
 
-  const hierarchyHTML = canManage ? buildHierarchyHTML(item.meetingLevel || "team_weekly") : "";
-  const statusWorkflowHTML = canManage ? buildStatusWorkflowHTML(item.status) : "";
+  const hierarchyHTML = buildHierarchyHTML(item.meetingLevel || "team_weekly");
+  const statusWorkflowHTML = buildStatusWorkflowHTML(item.status);
 
   // Drawer header: compact SLA pill left of close button
   const statusPillHost = document.querySelector("#detail-status-pill");
   if (statusPillHost) statusPillHost.innerHTML = buildDrawerSLAPillHTML(item);
 
   // V3 Benchmark: Quick Actions Bar
-  const quickActionsHTML = canManage && isChallenge && isOpenStatus(item.status) ? `<div class="quick-actions-bar">
+  const quickActionsHTML = isChallenge && isOpenStatus(item.status) ? `<div class="quick-actions-bar">
     ${item.status === "new" ? `<button class="qa-btn qa-assign" data-qa="assign" data-item-id="${item.id}">Assign</button>` : ""}
     ${item.status !== "escalated" ? `<button class="qa-btn qa-escalate" data-qa="escalate" data-item-id="${item.id}">Escalate</button>` : ""}
     <button class="qa-btn qa-resolve" data-qa="resolve" data-item-id="${item.id}">Resolve</button>
@@ -4834,15 +5787,17 @@ function openDetailDrawer(itemId) {
   const solutionEditorHTML = isChallenge
     ? canEditSolution
       ? `<section class="detail-section inline-sol">
-      <h4>Solution</h4>
+      <h4>Solution ${infoIcon("Document the steps taken to resolve this challenge. A good solution enables future knowledge reuse and can skip new meetings.")}</h4>
       <textarea class="inline-sol-area" id="inline-sol-text" data-item-id="${item.id}" placeholder="Enter solution...">${escapeHtml(item.solution || "")}</textarea>
       <div class="inline-sol-actions">
         <button class="btn-primary" style="font-size:0.82rem;padding:7px 14px" data-action="save-inline-solution" data-item-id="${item.id}">Save Solution</button>
+        ${isOpenStatus(item.status) ? `<button class="btn-primary rw-resolve-btn" style="font-size:0.82rem;padding:7px 14px" data-action="open-resolve-wizard" data-item-id="${item.id}">Resolve Challenge</button>` : ""}
       </div>
     </section>`
       : `<section class="detail-section inline-sol">
-      <h4>Solution</h4>
+      <h4>Solution ${infoIcon("The documented resolution for this challenge. This solution is searchable and can be reused by future similar cases.")}</h4>
       <p class="${hasSolution ? "detail-solution-text" : "detail-solution-empty"}">${escapeHtml(solutionText)}</p>
+      ${isOpenStatus(item.status) ? `<div class="inline-sol-actions"><button class="btn-primary rw-resolve-btn" style="font-size:0.82rem;padding:7px 14px;margin-top:8px" data-action="open-resolve-wizard" data-item-id="${item.id}">Resolve Challenge</button></div>` : ""}
     </section>`
     : "";
   const commentInputHTML = canComment
@@ -4853,7 +5808,7 @@ function openDetailDrawer(itemId) {
     : "";
   const commentsSectionHTML = canComment
     ? `<section class="detail-section inline-comments">
-        <h4>Comments</h4>
+        <h4>Comments ${infoIcon("Threaded comments from team members. Use to share context, ask questions or flag blockers without sending emails.")}</h4>
         <div class="cmt-list" id="cmt-list-${item.id}">
           ${(item.comments || []).map((c, index) => `<div class="cmt-item"><div class="cmt-head"><span class="cmt-author">${escapeHtml(c.author)}</span><span class="cmt-head-meta"><span class="cmt-date">${c.date}</span>${canManage ? `<button type="button" class="cmt-delete-btn" data-action="delete-comment" data-item-id="${item.id}" data-comment-index="${index}">Delete</button>` : ""}</span></div><p class="cmt-text">${escapeHtml(c.text)}</p></div>`).join("") || '<p class="dash-empty">No comments yet.</p>'}
         </div>
@@ -4862,11 +5817,11 @@ function openDetailDrawer(itemId) {
     : "";
 
   // V3 Benchmark: Activity Timeline
-  const timelineHTML = canManage && isChallenge ? buildActivityTimeline(item) : "";
+  const timelineHTML = isChallenge ? buildActivityTimeline(item) : "";
 
   // Known Error Tag
-  const rootCauseTag = canManage && isChallenge && item.solutionTemplate?.rootCause ? `<span class="known-error-tag">Known Error: ${escapeHtml(item.solutionTemplate.rootCause)}</span>` : "";
-  const solutionTemplateMeta = canManage && isChallenge && item.solutionTemplate
+  const rootCauseTag = isChallenge && item.solutionTemplate?.rootCause ? `<span class="known-error-tag">Known Error: ${escapeHtml(item.solutionTemplate.rootCause)}</span>` : "";
+  const solutionTemplateMeta = isChallenge && item.solutionTemplate
     ? `
       <section class="detail-section solution-template">
         <h4>Solution template</h4>
@@ -4879,6 +5834,24 @@ function openDetailDrawer(itemId) {
     `
     : "";
 
+  const LABEL_TIPS = {
+    "Status": "Current stage in the resolution workflow.",
+    "Department": "The team that raised or owns this item.",
+    "Owner": "Person responsible for driving resolution.",
+    "Due date": "Target date for resolving this challenge.",
+    "Meeting level": "Which RED meeting tier this item is assigned to.",
+    "Resolved": "Who resolved the item and when.",
+    "Created by": "The person who logged this item.",
+    "Meeting needed": "Whether a cross-functional meeting is required to resolve this.",
+    "Stakeholders": "People with a direct interest in this item's outcome.",
+    "External contact": "Person outside the team invited to contribute.",
+    "Meeting gate": "Whether a similar past case was found that could allow skipping a meeting.",
+    "Escalated meeting": "The meeting level this item was escalated to.",
+    "Escalation date": "When the escalation was scheduled.",
+    "Escalated to": "Person or department that received the escalation.",
+    "Reason": "Stated reason for escalating this item.",
+  };
+
   const buildMetaGrid = (rows) => `
     <div class="detail-kv-grid">
       ${rows
@@ -4886,7 +5859,7 @@ function openDetailDrawer(itemId) {
         .map(
           (row) => `
             <div class="detail-kv-row">
-              <span class="detail-kv-label">${escapeHtml(row.label)}</span>
+              <span class="detail-kv-label">${escapeHtml(row.label)}${LABEL_TIPS[row.label] ? " " + infoIcon(LABEL_TIPS[row.label]) : ""}</span>
               <span class="detail-kv-value">${escapeHtml(String(row.value))}</span>
             </div>
           `
@@ -4925,14 +5898,12 @@ function openDetailDrawer(itemId) {
     { label: "Meeting level", value: item.meetingLevel ? meetingLayerLabel(item.meetingLevel).replace(/ Meeting.*/, "") : "Not set" },
   ]);
 
-  const escalationDetailsGrid = canManage
-    ? buildMetaGrid([
+  const escalationDetailsGrid = buildMetaGrid([
         { label: "Escalated meeting", value: item.details?.escalationTargetMeeting ? meetingLayerLabel(item.details.escalationTargetMeeting) : "Not escalated" },
         { label: "Escalation date", value: item.details?.escalationMeetingDate || "-" },
         { label: "Escalated to", value: item.details?.escalatedTo || "-" },
         { label: "Reason", value: item.details?.escalationReason || "-" },
-      ])
-    : "";
+      ]);
   const detailIdLabel = item.type === "challenge" ? `Challenge ${item.id}` : item.id;
 
   const detail = document.querySelector("#detail-content");
@@ -4950,7 +5921,7 @@ function openDetailDrawer(itemId) {
       ${rootCauseTag}
     </div>
     <section class="detail-section detail-sales-focus">
-      <h4>${item.type === "challenge" ? "Challenge" : "Case Summary"}</h4>
+      <h4>${item.type === "challenge" ? "Challenge" : "Case Summary"} ${infoIcon("The original description of this item as submitted by the reporter.")}</h4>
       <p class="detail-lead">${escapeHtml(item.description)}</p>
     </section>
 
@@ -4960,12 +5931,12 @@ function openDetailDrawer(itemId) {
 
     ${isChallenge
       ? `<section class="detail-section detail-quick-context">
-          <h4>${canManage ? "Case Details" : "Quick Context"}</h4>
+          <h4>${canManage ? "Case Details" : "Quick Context"} ${infoIcon(canManage ? "Full case metadata including meeting gate status, stakeholders and external contacts." : "Key facts about this challenge.")}</h4>
           ${canManage ? supervisorMetaHTML : salesMetaHTML}
         </section>`
       : canManage
         ? `<section class="detail-section detail-quick-context">
-            <h4>Case Details</h4>
+            <h4>Case Details ${infoIcon("Key metadata for this item.")}</h4>
             ${supervisorLiteMetaHTML}
           </section>`
         : ""
@@ -4973,9 +5944,9 @@ function openDetailDrawer(itemId) {
 
     ${deptAssignMeta}
 
-    ${canManage && isChallenge ? `
+    ${isChallenge ? `
       <section class="detail-section detail-quick-context supervisor-extra-section">
-        <h4>Workflow & Escalation</h4>
+        <h4>Workflow &amp; Escalation ${infoIcon("Current status in the resolution workflow. Use actions to assign, escalate or resolve.", "left")}</h4>
         ${quickActionsHTML}
         ${statusWorkflowHTML}
         ${escalationDetailsGrid}
@@ -4985,17 +5956,22 @@ function openDetailDrawer(itemId) {
       ${solutionTemplateMeta}
 
       <section class="detail-section detail-quick-context supervisor-extra-section">
-        <h4>Meeting Level Hierarchy</h4>
+        <h4>Meeting Level Hierarchy ${infoIcon("Shows which meeting level this case is currently assigned to in the escalation chain.", "left")}</h4>
         ${hierarchyHTML}
       </section>
 
       <section class="detail-section detail-quick-context supervisor-extra-section">
-        <h4>Activity Timeline</h4>
+        <h4>Activity Timeline ${infoIcon("Chronological log of all updates, assignments, escalations and resolutions for this case.", "left")}</h4>
         ${timelineHTML}
       </section>
 
       ${similarityExplorerHTML}
+    ` : ``}
 
+    ${canManage ? `
+      <div class="drawer-admin-actions">
+        <button type="button" class="mini-btn mini-btn-edit" data-action="edit-item" data-item-id="${item.id}">✎ Edit</button>
+      </div>
       <div class="drawer-delete-zone">
         <button type="button" class="drawer-delete-btn" data-action="delete-item" data-item-id="${item.id}">Delete this item</button>
       </div>
@@ -5353,6 +6329,8 @@ function applyKnowledgeReuse(itemId, matchedId) {
   item.details = {
     ...item.details,
     knowledgeReused: true,
+    knowledgeReuseSource: matched.id,
+    knowledgeReuseTimestamp: new Date().toISOString(),
     meetingGate: { matchedItemId: matched.id, similarity: 0, appliedAt: todayISO() },
   };
   item.updates.push({
@@ -5415,236 +6393,795 @@ function handleRecurringEscalate() {
   openEscalateModal(itemId, suggestion);
 }
 
+// ── Analytics Drill-Down Popup ────────────────────────────────────────────────
+
+function openAnalyticsPopup(title, itemIdList) {
+  let popup = document.querySelector("#analytics-popup");
+  if (!popup) {
+    popup = document.createElement("div");
+    popup.id = "analytics-popup";
+    popup.className = "an-popup";
+    popup.innerHTML = `
+      <div class="an-popup-inner" id="analytics-popup-inner">
+        <div class="an-popup-header">
+          <span class="an-popup-title" id="analytics-popup-title"></span>
+          <button class="an-popup-close" id="analytics-popup-close" aria-label="Close">&#x2715;</button>
+        </div>
+        <div class="an-popup-body" id="analytics-popup-body"></div>
+        <div class="an-popup-resize-handle" id="analytics-popup-resize"></div>
+      </div>`;
+    document.body.appendChild(popup);
+
+    // Close button
+    popup.querySelector("#analytics-popup-close").addEventListener("click", () => {
+      popup.classList.remove("is-open");
+    });
+    // Click backdrop to close
+    popup.addEventListener("click", (e) => {
+      if (e.target === popup) popup.classList.remove("is-open");
+    });
+
+    // Drag to move
+    const inner = popup.querySelector("#analytics-popup-inner");
+    const header = popup.querySelector(".an-popup-header");
+    let dragging = false, dx = 0, dy = 0;
+    header.addEventListener("mousedown", (e) => {
+      if (e.target.closest(".an-popup-close")) return;
+      dragging = true;
+      const rect = inner.getBoundingClientRect();
+      dx = e.clientX - rect.left;
+      dy = e.clientY - rect.top;
+      inner.style.transition = "none";
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      inner.style.left = (e.clientX - dx) + "px";
+      inner.style.top = (e.clientY - dy) + "px";
+      inner.style.transform = "none";
+    });
+    document.addEventListener("mouseup", () => { dragging = false; });
+
+    // Resize handle
+    const resizeHandle = popup.querySelector("#analytics-popup-resize");
+    let resizing = false, startX, startY, startW, startH;
+    resizeHandle.addEventListener("mousedown", (e) => {
+      resizing = true;
+      startX = e.clientX; startY = e.clientY;
+      startW = inner.offsetWidth; startH = inner.offsetHeight;
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!resizing) return;
+      const newW = Math.max(320, startW + (e.clientX - startX));
+      const newH = Math.max(200, startH + (e.clientY - startY));
+      inner.style.width = newW + "px";
+      inner.style.height = newH + "px";
+    });
+    document.addEventListener("mouseup", () => { resizing = false; });
+  }
+
+  // Populate
+  const popupTitle = popup.querySelector("#analytics-popup-title");
+  const popupBody = popup.querySelector("#analytics-popup-body");
+  const popupInner = popup.querySelector("#analytics-popup-inner");
+
+  // Reset position when opening fresh
+  popupInner.style.left = "";
+  popupInner.style.top = "";
+  popupInner.style.transform = "";
+  popupInner.style.width = "";
+  popupInner.style.height = "";
+
+  popupTitle.textContent = title;
+
+  const matchedItems = itemIdList
+    .map((id) => items.find((i) => i.id === id))
+    .filter(Boolean);
+
+  if (!matchedItems.length) {
+    popupBody.innerHTML = `<p class="an-popup-empty">No matching items found.</p>`;
+  } else {
+    const statusColors = {
+      new: "#6366f1", assigned: "#f59e0b", in_discussion: "#3b82f6",
+      escalated: "#ef4444", resolved: "#22c55e", closed: "#9ca3af",
+    };
+    popupBody.innerHTML = matchedItems.map((item) => {
+      const sColor = statusColors[item.status] || "#9ca3af";
+      const priorityIcon = item.priority === "high" ? "🔴" : item.priority === "medium" ? "🟡" : "🟢";
+      const reuseTag = item.details?.knowledgeReused
+        ? `<span class="an-popup-tag an-popup-tag-reuse">Reuse</span>` : "";
+      const meetingTag = item.meetingNeeded === false
+        ? `<span class="an-popup-tag an-popup-tag-skipped">No meeting</span>` : "";
+      return `<div class="an-popup-item">
+        <div class="an-popup-item-head">
+          <span class="an-popup-item-id">${escapeHtml(item.id)}</span>
+          <span class="an-popup-status-dot" style="background:${sColor}" title="${item.status}"></span>
+          <span class="an-popup-item-status">${toLabel(item.status)}</span>
+          <span style="margin-left:auto;display:flex;gap:4px;align-items:center">${reuseTag}${meetingTag}</span>
+        </div>
+        <p class="an-popup-item-title">${escapeHtml(item.title)}</p>
+        <div class="an-popup-item-meta">
+          <span>${priorityIcon} ${toLabel(item.priority || "medium")}</span>
+          <span>📁 ${escapeHtml(item.department)}</span>
+          ${item.assignedTo ? `<span>👤 ${escapeHtml(item.assignedTo)}</span>` : ""}
+          ${item.resolvedAt ? `<span>✅ ${item.resolvedAt}</span>` : item.dueDate ? `<span>📅 Due ${item.dueDate}</span>` : ""}
+        </div>
+        ${item.solution ? `<p class="an-popup-item-solution">${escapeHtml(item.solution.slice(0, 120))}${item.solution.length > 120 ? "…" : ""}</p>` : ""}
+        <div class="an-popup-item-actions">
+          <button class="mini-btn an-popup-detail-btn" data-item-id="${escapeHtml(item.id)}">Details →</button>
+          ${isSupervisorView() ? `<button class="mini-btn mini-btn-edit an-popup-edit-btn" data-item-id="${escapeHtml(item.id)}">✎ Edit</button>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+
+    // Wire up Details buttons
+    popupBody.querySelectorAll(".an-popup-detail-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        popup.classList.remove("is-open");
+        openDetailDrawer(btn.dataset.itemId);
+      });
+    });
+    popupBody.querySelectorAll(".an-popup-edit-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        popup.classList.remove("is-open");
+        openEditItemPrompt(btn.dataset.itemId);
+      });
+    });
+  }
+
+  popup.classList.add("is-open");
+}
+
 // ── Feature 8 & 9 & 10: Analytics Dashboard Rendering ────────────────────────
 
-function renderAnalyticsDashboard() {
-  const container = document.querySelector("#screen-analytics");
-  if (!container) return;
+let analyticsTimeFilter = "all"; // all | 7d | 30d | 90d | custom
+let analyticsCustomStart = "";
+let analyticsCustomEnd = "";
+let systemOverviewTimeFilter = "all";
+let systemOverviewCustomStart = "";
+let systemOverviewCustomEnd = "";
+let systemOverviewDeptFilter = "all";
 
-  const metrics = buildEfficiencyMetrics();
-  const rootCauses = buildRootCauseAnalytics();
-  const clusters = buildChallengeClusters();
-  const maxRc = rootCauses[0]?.count || 1;
-  const maxCl = clusters[0]?.count || 1;
+function getAnalyticsFilteredItems() {
+  if (analyticsTimeFilter === "all") return items;
+  const now = new Date();
+  let startDate;
+  if (analyticsTimeFilter === "today") {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (analyticsTimeFilter === "7d") {
+    startDate = new Date(now); startDate.setDate(startDate.getDate() - 7);
+  } else if (analyticsTimeFilter === "30d") {
+    startDate = new Date(now); startDate.setDate(startDate.getDate() - 30);
+  } else if (analyticsTimeFilter === "90d") {
+    startDate = new Date(now); startDate.setDate(startDate.getDate() - 90);
+  } else if (analyticsTimeFilter === "custom" && analyticsCustomStart && analyticsCustomEnd) {
+    startDate = new Date(analyticsCustomStart + "T00:00:00");
+    const endDate = new Date(analyticsCustomEnd + "T23:59:59");
+    return items.filter(i => {
+      const d = new Date(i.createdAt);
+      return d >= startDate && d <= endDate;
+    });
+  } else {
+    return items;
+  }
+  return items.filter(i => new Date(i.createdAt) >= startDate);
+}
 
-  // V2: Department breakdown
-  const deptCounts = {};
-  items.filter((i) => i.type === "challenge").forEach((item) => {
-    deptCounts[item.department] = (deptCounts[item.department] || 0) + 1;
-  });
-  const deptBreakdown = Object.entries(deptCounts).sort((a, b) => b[1] - a[1]);
-  const maxDept = deptBreakdown[0]?.[1] || 1;
-
-  // V2: Meeting level distribution
+function buildEfficiencyMetricsFiltered(filteredItems) {
+  const challenges = filteredItems.filter((i) => i.type === "challenge");
+  const total = challenges.length || 1;
+  const skippedFromData = challenges.filter((i) => i.meetingNeeded === false);
+  const skippedMeetings = skippedFromData.length + (analyticsTimeFilter === "all" ? meetingsAvoidedCount : 0);
+  const manHoursSaved = skippedFromData.reduce((sum, i) => sum + calcItemManHours(i), 0)
+    + (analyticsTimeFilter === "all" ? (meetingsAvoidedCount * calcItemManHours({ meetingLevel: "regional_red" })) : 0);
+  const reuseItemsFromData = challenges.filter((i) => i.details?.knowledgeReused);
+  const reuseItems = reuseItemsFromData.length + (analyticsTimeFilter === "all" ? knowledgeReuseCount : 0);
+  const reuseRate = Math.round((reuseItems / total) * 100);
+  const reuseItemIds = reuseItemsFromData.map(i => i.id);
+  const resolved = challenges.filter((i) => i.resolvedAt && i.createdAt);
+  const calcDays = (i) => Math.max(0, Math.ceil((new Date(i.resolvedAt) - new Date(i.createdAt)) / 864e5));
+  const reuseResolved = resolved.filter((i) => i.details?.knowledgeReused);
+  const freshResolved = resolved.filter((i) => !i.details?.knowledgeReused);
+  const avgReuseRes = reuseResolved.length
+    ? Math.round(reuseResolved.reduce((s, i) => s + calcDays(i), 0) / reuseResolved.length) : null;
+  const avgFreshRes = freshResolved.length
+    ? Math.round(freshResolved.reduce((s, i) => s + calcDays(i), 0) / freshResolved.length) : null;
+  const accelerationDays = (avgReuseRes !== null && avgFreshRes !== null) ? avgFreshRes - avgReuseRes : null;
+  const ftrrItems = resolved.filter((i) => i.meetingNeeded === false && (i.updates || []).length <= 2);
+  const ftrrItemIds = ftrrItems.map(i => i.id);
+  const ftrr = Math.round((ftrrItems.length / (resolved.length || 1)) * 100);
+  const lowLevels = ["team_weekly", "regional_red"];
+  const escalAvoid = resolved.filter((i) => lowLevels.includes(i.meetingLevel));
+  const escalAvoidIds = escalAvoid.map(i => i.id);
+  const ear = Math.round((escalAvoid.length / (resolved.length || 1)) * 100);
+  const sourcedIds = new Set(challenges.filter((i) => i.details?.knowledgeReuseSource).map((i) => i.details.knowledgeReuseSource));
+  const resolvedWithSolution = resolved.filter((i) => i.solution && i.solution.length > 10);
+  const kciSourceItems = resolvedWithSolution.filter(i => sourcedIds.has(i.id));
+  const kciItemIds = kciSourceItems.map(i => i.id);
+  const kci = resolvedWithSolution.length ? Math.round((sourcedIds.size / resolvedWithSolution.length) * 100) : 0;
   const levelCounts = {};
-  items.filter((i) => i.type === "challenge" && isOpenStatus(i.status)).forEach((item) => {
-    const lvl = item.meetingLevel || "team_weekly";
+  challenges.filter((i) => i.status === "new" || i.status === "assigned" || i.status === "in_discussion").forEach((i) => {
+    const lvl = i.meetingLevel || "team_weekly";
     levelCounts[lvl] = (levelCounts[lvl] || 0) + 1;
   });
+  const rcData = buildRootCauseAnalytics().slice(0, 3);
+  const recurring = challenges.filter((i) => i.details?.isRecurring).length;
+  return {
+    skippedMeetings, manHoursSaved: Math.round(manHoursSaved * 10) / 10,
+    reuseItems, reuseRate, reuseItemIds,
+    avgReuseRes, avgFreshRes, accelerationDays,
+    ftrr, ftrrItemIds,
+    ear, escalAvoidIds,
+    kci, kciItemIds,
+    levelCounts, rcData, recurring,
+    totalChallenges: total, resolvedCount: resolved.length, reuseSourceCount: sourcedIds.size,
+  };
+}
 
-  // V2: Assignment department stats
-  const assignDeptCounts = {};
-  items.filter((i) => i.assignedToDept).forEach((item) => {
-    assignDeptCounts[item.assignedToDept] = (assignDeptCounts[item.assignedToDept] || 0) + 1;
-  });
-  const assignDeptBreakdown = Object.entries(assignDeptCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const maxAssign = assignDeptBreakdown[0]?.[1] || 1;
+function renderAnalyticsDashboard() {
+  const root = document.querySelector("#screen-analytics");
+  if (!root) return;
 
-  // V2: Supervisor-only note
-  const accessNote = isSupervisorView()
-    ? '<p style="color:var(--coke-red-dark);font-weight:600;font-size:0.82rem;margin:0 0 10px">🔒 Supervisor view — full metrics visible</p>'
-    : '<p style="color:var(--ink-soft);font-weight:500;font-size:0.82rem;margin:0 0 10px">📊 Sales representative view — read-only analytics summary</p>';
+  if (!root.querySelector("#analytics-performance-content") || !root.querySelector("#analytics-system-content")) {
+    root.innerHTML = `
+      <div class="dd-list analytics-dd-list" id="analytics-dropdowns">
+        <div class="dd-card is-open">
+          <button class="dd-toggle" type="button" data-an-dd="performance-overview">
+            <div class="dd-text">
+              <strong>Performance Overview</strong>
+              <span>Core performance metrics and efficiency KPIs</span>
+            </div>
+            <span class="dd-chevron">&#x25BE;</span>
+          </button>
+          <div class="dd-body">
+            <div id="analytics-performance-content"></div>
+          </div>
+        </div>
+        <div class="dd-card">
+          <button class="dd-toggle" type="button" data-an-dd="system-overview">
+            <div class="dd-text">
+              <strong>System Overview</strong>
+              <span>Status pipeline, workload, and operational diagnostics</span>
+            </div>
+            <span class="dd-chevron">&#x25BE;</span>
+          </button>
+          <div class="dd-body">
+            <div id="analytics-system-content"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const container = root.querySelector("#analytics-performance-content");
+  const systemContainer = root.querySelector("#analytics-system-content");
+  if (!container || !systemContainer) return;
+
+  const filteredItems = getAnalyticsFilteredItems();
+  const m = buildEfficiencyMetricsFiltered(filteredItems);
+  const challenges = filteredItems.filter(i => i.type === "challenge");
+
+  // Health Score
+  const totalAll = filteredItems.length || 1;
+  const resolvedAll = filteredItems.filter(i => i.status === "resolved" || i.status === "closed").length;
+  const openAll = filteredItems.filter(i => isOpenStatus(i.status)).length;
+  const overdueAll = filteredItems.filter(i => i.dueDate && isOpenStatus(i.status) && new Date(i.dueDate+"T23:59:59") < new Date()).length;
+  const resolvedWithDue = filteredItems.filter(i => (i.status==="resolved"||i.status==="closed") && i.dueDate && i.resolvedAt);
+  const slaMet = resolvedWithDue.filter(i => new Date(i.resolvedAt) <= new Date(i.dueDate+"T23:59:59")).length;
+  const slaRate = resolvedWithDue.length ? Math.round((slaMet/resolvedWithDue.length)*100) : 0;
+  const resolvedChallenges = challenges.filter(i => i.resolvedAt && i.createdAt);
+  const avgResDays = resolvedChallenges.length ? Math.round(resolvedChallenges.reduce((s,i) => s+Math.max(0,Math.ceil((new Date(i.resolvedAt)-new Date(i.createdAt))/864e5)),0)/resolvedChallenges.length) : 0;
+  const resRate = Math.round((resolvedAll/totalAll)*100);
+  const overdueScore = Math.round(Math.min(100-(overdueAll/(openAll||1))*100,100));
+  const krPct = challenges.length>0 ? (challenges.filter(i=>i.details?.knowledgeReused).length/challenges.length)*100 : 0;
+  const reuseScore = Math.round(Math.min(krPct*2,100));
+  const systemHealth = Math.round((resRate+overdueScore+slaRate+reuseScore)/4);
+  const hClr = systemHealth>=70?"#22c55e":systemHealth>=40?"#f59e0b":"#ef4444";
+  const hLbl = systemHealth>=70?"Healthy":systemHealth>=40?"Needs Attention":"Critical";
+  const healthBreakdown = {overall:systemHealth, components:[
+    {label:"Resolution Rate",value:resRate,max:100,detail:`${resolvedAll} of ${totalAll} items resolved`},
+    {label:"Overdue Score",value:overdueScore,max:100,detail:`${overdueAll} overdue out of ${openAll} open items`},
+    {label:"SLA Compliance",value:slaRate,max:100,detail:`${slaMet} of ${resolvedWithDue.length} items met SLA deadline`},
+    {label:"Knowledge Reuse",value:reuseScore,max:100,detail:`${challenges.filter(i=>i.details?.knowledgeReused).length} of ${challenges.length} challenges reused knowledge (×2 weight)`},
+  ]};
+
+  const resolutionSection = (m.accelerationDays !== null)
+    ? `<div class="an-res-row">
+        <div class="an-res-cell an-res-good"><span class="an-res-val">${m.avgReuseRes}d</span><span class="an-res-lbl">Avg. resolution<br><strong>with reuse</strong></span></div>
+        <div class="an-res-arrow">→</div>
+        <div class="an-res-cell an-res-base"><span class="an-res-val">${m.avgFreshRes}d</span><span class="an-res-lbl">Avg. resolution<br><strong>without reuse</strong></span></div>
+        <div class="an-res-delta"><span class="an-res-delta-val">${m.accelerationDays>0?"-"+m.accelerationDays:"~0"}d</span><span class="an-res-delta-lbl">faster via<br>knowledge reuse</span></div>
+      </div>`
+    : `<p class="an-empty">Not enough resolved items with timestamps yet.</p>`;
+
+  const timeFilterLabels = {all:"All Time",today:"Today","7d":"Last 7 Days","30d":"Last 30 Days","90d":"Last 90 Days",custom:"Custom Range"};
 
   container.innerHTML = `
-    ${accessNote}
-    <!-- Feature 10: Efficiency Metrics -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Meeting Efficiency Metrics</h2>
-        <p>Impact of knowledge reuse on meeting load this period</p>
+    <div class="an-time-filter-bar">
+      <div class="an-time-filter-row">
+        <span class="an-time-filter-label">Period</span>
+        <div class="an-time-filter-btns">
+          ${["all","today","7d","30d","90d","custom"].map(k =>
+            `<button class="an-time-btn${analyticsTimeFilter===k?" is-active":""}" data-time-filter="${k}">${timeFilterLabels[k]}</button>`
+          ).join("")}
+        </div>
       </div>
-      <div class="kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
-        <article class="kpi-card analytics-kpi">
-          <h3>Meetings Avoided</h3>
-          <p class="kpi-big">${metrics.skippedMeetings}</p>
-          <small>via knowledge reuse</small>
-        </article>
-        <article class="kpi-card analytics-kpi">
-          <h3>Items Solved Without Meeting</h3>
-          <p class="kpi-big">${metrics.reuseItems}</p>
-          <small>knowledge reuse applied</small>
-        </article>
-        <article class="kpi-card analytics-kpi">
-          <h3>Knowledge Reuse Rate</h3>
-          <p class="kpi-big">${metrics.reuseRate}%</p>
-          <small>of all challenges</small>
-        </article>
-        <article class="kpi-card analytics-kpi">
-          <h3>Recurring Challenges</h3>
-          <p class="kpi-big">${metrics.recurring}</p>
-          <small>flagged as recurring</small>
-        </article>
+      <div class="an-time-custom-row" style="display:${analyticsTimeFilter==="custom"?"flex":"none"}">
+        <label class="an-time-custom-label">From <input type="date" class="an-time-custom-input" id="an-custom-start" value="${analyticsCustomStart}"/></label>
+        <label class="an-time-custom-label">To <input type="date" class="an-time-custom-input" id="an-custom-end" value="${analyticsCustomEnd}"/></label>
+        <button class="an-time-btn an-time-apply-btn" id="an-custom-apply">Apply</button>
+      </div>
+      <span class="an-time-filter-summary">Showing <strong>${filteredItems.length}</strong> of ${items.length} items · ${timeFilterLabels[analyticsTimeFilter]}</span>
+    </div>
+
+    <!-- Health Score + SLA + Avg Resolution -->
+    <div class="an-health-row">
+      <div class="so-health-card so-health-clickable" id="an-health-card-btn">
+        <div class="so-health-ring-wrap">
+          <svg class="so-health-ring" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#f0f0f0" stroke-width="10"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="${hClr}" stroke-width="10"
+              stroke-dasharray="${Math.round(326.7*systemHealth/100)} 326.7"
+              stroke-linecap="round" transform="rotate(-90 60 60)" style="transition:stroke-dasharray .6s ease"/>
+          </svg>
+          <div class="so-health-center">
+            <span class="so-health-score" style="color:${hClr}">${systemHealth}</span>
+            <span class="so-health-label">${hLbl}</span>
+          </div>
+        </div>
+        <div class="so-health-title">System Health Score ${infoIcon("Composite score: average of Resolution Rate, Overdue Score, SLA Compliance, and Knowledge Reuse (×2 weight). Range 0–100.")}</div>
+        <button class="an-kpi-view-btn" id="health-view-details-btn" style="margin-top:4px">View Details</button>
+      </div>
+      <div class="an-kpi-card" style="text-align:center;justify-content:center;align-items:center">
+        <span class="an-kpi-label">SLA Compliance ${infoIcon("Percentage of resolved items with a due date that were closed on or before their deadline. Higher is better.","left")}</span>
+        <span class="an-kpi-val">${slaRate}%</span>
+        <span class="an-kpi-sub">${slaMet} of ${resolvedWithDue.length} met deadline</span>
+        <button class="an-kpi-view-btn" id="sla-view-details-btn" style="margin-top:4px">View Details</button>
+      </div>
+      <div class="an-kpi-card" style="text-align:center;justify-content:center;align-items:center">
+        <span class="an-kpi-label">Avg. Resolution Time ${infoIcon("Average number of days between createdAt and resolvedAt for resolved challenges. Lower is better.","left")}</span>
+        <span class="an-kpi-val">${avgResDays}d</span>
+        <span class="an-kpi-sub">${resolvedChallenges.length} resolved challenges</span>
       </div>
     </div>
 
-    <!-- V2: Meeting Level Distribution -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Meeting Level Distribution</h2>
-        <p>Open challenges by escalation meeting level</p>
+    <!-- KPI Cards -->
+    <div class="an-kpi-grid-4">
+      <div class="an-kpi-card">
+        <span class="an-kpi-label">Knowledge Reuse Count ${infoIcon("Number of challenges resolved by reusing an existing solution.","left")}</span>
+        <span class="an-kpi-val">${m.reuseItems}</span>
+        <span class="an-kpi-sub">${m.reuseRate}% of all challenges</span>
+        <button class="an-kpi-view-btn" data-kpi-title="Knowledge Reuse Cases" data-kpi-ids='${JSON.stringify(m.reuseItemIds)}'>View cases →</button>
       </div>
-      <div class="kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
-        ${MEETING_HIERARCHY.map(({ key, label, time }) => `
-          <article class="kpi-card analytics-kpi">
-            <h3>${label.replace(" Meeting", "")}</h3>
-            <p class="kpi-big">${levelCounts[key] || 0}</p>
-            <small>${time}</small>
-          </article>`).join("")}
+      <div class="an-kpi-card">
+        <span class="an-kpi-label">First-Touch Resolution ${infoIcon("% of resolved challenges closed without a meeting and ≤2 updates.","left")}</span>
+        <span class="an-kpi-val">${m.ftrr}%</span>
+        <span class="an-kpi-sub">${m.ftrrItemIds.length} resolved without a meeting</span>
+        <button class="an-kpi-view-btn" data-kpi-title="First-Touch Resolution Cases" data-kpi-ids='${JSON.stringify(m.ftrrItemIds)}'>View cases →</button>
       </div>
-    </div>
-
-    <!-- V2: Department Assignment Overview (Tutor Feedback §3) -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Department Assignment Overview</h2>
-        <p>Challenges assigned to back-office and support departments via group email</p>
+      <div class="an-kpi-card">
+        <span class="an-kpi-label">Escalation Avoidance ${infoIcon("% of resolved challenges that stayed ≤ regional level.","left")}</span>
+        <span class="an-kpi-val">${m.ear}%</span>
+        <span class="an-kpi-sub">${m.escalAvoidIds.length} stayed ≤ regional level</span>
+        <button class="an-kpi-view-btn" data-kpi-title="Escalation Avoidance Cases" data-kpi-ids='${JSON.stringify(m.escalAvoidIds)}'>View cases →</button>
       </div>
-      <div class="analytics-bar-list">
-        ${assignDeptBreakdown.length ? assignDeptBreakdown.map(([dept, count]) => `
-          <div class="analytics-bar-row">
-            <span class="analytics-bar-label">${escapeHtml(dept)}</span>
-            <div class="analytics-bar-track">
-              <div class="analytics-bar-fill" style="width:${Math.round((count / maxAssign) * 100)}%"></div>
-            </div>
-            <span class="analytics-bar-count">${count}</span>
-          </div>`).join("") : '<p class="sim-empty">No department assignments yet.</p>'}
+      <div class="an-kpi-card">
+        <span class="an-kpi-label">Knowledge Compound Index ${infoIcon("% of solutions reused as source by another challenge.","left")}</span>
+        <span class="an-kpi-val">${m.kci}%</span>
+        <span class="an-kpi-sub">${m.reuseSourceCount} solutions reused as source</span>
+        <button class="an-kpi-view-btn" data-kpi-title="Knowledge Compound — Reused Solutions" data-kpi-ids='${JSON.stringify(m.kciItemIds)}'>View cases →</button>
       </div>
     </div>
 
-    <!-- Feature 8: Root Cause Analytics -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Top Root Causes</h2>
-        <p>Organisational learning — what keeps coming back</p>
+    <!-- Resolution Time -->
+    <div class="panel an-panel-compact">
+      <div class="an-section-head">
+        <span class="an-section-title">Resolution Time — Reuse vs. Fresh ${infoIcon("Compares average days-to-resolve for challenges with knowledge reuse vs. fresh resolution. Computed from createdAt/resolvedAt timestamps.")}</span>
+        <span class="an-section-note">${m.resolvedCount} resolved items</span>
       </div>
-      <div class="analytics-bar-list">
-        ${rootCauses.length ? rootCauses.map(({ label, count }) => `
-          <div class="analytics-bar-row">
-            <span class="analytics-bar-label">${escapeHtml(label)}</span>
-            <div class="analytics-bar-track">
-              <div class="analytics-bar-fill" style="width:${Math.round((count / maxRc) * 100)}%"></div>
-            </div>
-            <span class="analytics-bar-count">${count}</span>
-          </div>`).join("") : '<p class="sim-empty">No root cause data yet. Resolve challenges with the solution template to populate this.</p>'}
-      </div>
-    </div>
-
-    <!-- V2: Department Breakdown -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Challenges by Originating Department</h2>
-        <p>Where challenges are being raised</p>
-      </div>
-      <div class="analytics-bar-list">
-        ${deptBreakdown.map(([dept, count]) => `
-          <div class="analytics-bar-row">
-            <span class="analytics-bar-label">${escapeHtml(dept)}</span>
-            <div class="analytics-bar-track">
-              <div class="analytics-bar-fill" style="width:${Math.round((count / maxDept) * 100)}%"></div>
-            </div>
-            <span class="analytics-bar-count">${count}</span>
-          </div>`).join("")}
-      </div>
-    </div>
-
-    <!-- Feature 9: Challenge Clusters -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Challenge Clusters</h2>
-        <p>Grouped by operational category</p>
-      </div>
-      <div class="cluster-grid">
-        ${clusters.map(({ label, count, items: clusterItems }) => `
-          <div class="cluster-card">
-            <div class="cluster-label">${escapeHtml(label)}</div>
-            <div class="cluster-count">${count}</div>
-            <div class="cluster-bar-wrap">
-              <div class="cluster-bar" style="width:${Math.round((count / maxCl) * 100)}%"></div>
-            </div>
-            <div class="cluster-ids">${clusterItems.slice(0, 4).map((id) => `<span class="cluster-id-chip">${id}</span>`).join("")}${clusterItems.length > 4 ? `<span class="cluster-id-chip">+${clusterItems.length - 4}</span>` : ""}</div>
-          </div>`).join("")}
-      </div>
-    </div>
-
-    <!-- V2: Improvements Overview Table (Tutor Feedback §4 Notes) -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>V2 Improvements Overview</h2>
-        <p>Summary of system improvements based on feedback</p>
-      </div>
-      <table class="improvements-table">
-        <thead>
-          <tr>
-            <th>Area</th>
-            <th>Improvement</th>
-            <th>Status</th>
-            <th>Priority</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Challenge Assignment</td>
-            <td>Department-based dropdown with group email notifications (replaces free text)</td>
-            <td>✅ Implemented</td>
-            <td><span class="improvement-badge high">High</span></td>
-          </tr>
-          <tr>
-            <td>Department Filtering</td>
-            <td>Weekly view filtered by own department; archive shows all departments</td>
-            <td>✅ Implemented</td>
-            <td><span class="improvement-badge high">High</span></td>
-          </tr>
-          <tr>
-            <td>Meeting Hierarchy</td>
-            <td>4-level escalation: Senior Manager → Associate Director → Director → Leadership</td>
-            <td>✅ Implemented</td>
-            <td><span class="improvement-badge high">High</span></td>
-          </tr>
-          <tr>
-            <td>Notification System</td>
-            <td>Jira-style notifications for assignments, escalations, and overdue items</td>
-            <td>✅ Implemented</td>
-            <td><span class="improvement-badge medium">Medium</span></td>
-          </tr>
-          <tr>
-            <td>Status Workflow</td>
-            <td>Visual status pipeline: New → Assigned → In Discussion → Escalated → Resolved</td>
-            <td>✅ Implemented</td>
-            <td><span class="improvement-badge medium">Medium</span></td>
-          </tr>
-          <tr>
-            <td>Role-Based Views</td>
-            <td>All Participants view vs. Supervisor view for different access levels</td>
-            <td>✅ Implemented</td>
-            <td><span class="improvement-badge medium">Medium</span></td>
-          </tr>
-          <tr>
-            <td>External Involvement</td>
-            <td>Invite people outside the system via email; submitter updates status</td>
-            <td>✅ Implemented</td>
-            <td><span class="improvement-badge low">Low</span></td>
-          </tr>
-          <tr>
-            <td>Metrics Dashboard</td>
-            <td>Meetings avoided, knowledge reuse rate, department breakdown, meeting level distribution</td>
-            <td>✅ Implemented</td>
-            <td><span class="improvement-badge medium">Medium</span></td>
-          </tr>
-        </tbody>
-      </table>
+      ${resolutionSection}
     </div>
   `;
+
+  // Wire Health Score popup (both card click and View Details button)
+  const hBtn = container.querySelector("#an-health-card-btn");
+  if (hBtn) hBtn.addEventListener("click", (e) => {
+    if (e.target.closest(".an-kpi-view-btn") || e.target.closest(".info-icon")) return;
+    openHealthBreakdownPopup(healthBreakdown);
+  });
+  const hDetailBtn = container.querySelector("#health-view-details-btn");
+  if (hDetailBtn) hDetailBtn.addEventListener("click", (e) => { e.stopPropagation(); openHealthBreakdownPopup(healthBreakdown); });
+
+  // Wire SLA View Details button
+  const slaDetailBtn = container.querySelector("#sla-view-details-btn");
+  if (slaDetailBtn) slaDetailBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openHealthBreakdownPopup({
+      overall: slaRate,
+      components: [
+        {label:"SLA Met",value:slaMet,max:resolvedWithDue.length||1,detail:`${slaMet} items resolved before or on due date`},
+        {label:"SLA Breached",value:resolvedWithDue.length-slaMet,max:resolvedWithDue.length||1,detail:`${resolvedWithDue.length-slaMet} items resolved after due date`},
+        {label:"Compliance Rate",value:slaRate,max:100,detail:`${slaRate}% of items with due dates met SLA`},
+      ],
+      title: "SLA Compliance Breakdown"
+    });
+  });
+
+  // Wire View Cases buttons ONLY (not whole card)
+  container.querySelectorAll(".an-kpi-view-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const ids = JSON.parse(btn.dataset.kpiIds || "[]");
+      if (ids.length) openAnalyticsPopup(btn.dataset.kpiTitle, ids);
+      else showToast("No cases for this metric yet.");
+    });
+  });
+
+  // Wire time filter
+  container.querySelectorAll(".an-time-btn[data-time-filter]").forEach(btn => {
+    btn.addEventListener("click", () => { analyticsTimeFilter = btn.dataset.timeFilter; renderAnalyticsDashboard(); });
+  });
+  const ca = container.querySelector("#an-custom-apply");
+  if (ca) ca.addEventListener("click", () => {
+    analyticsCustomStart = container.querySelector("#an-custom-start")?.value || "";
+    analyticsCustomEnd = container.querySelector("#an-custom-end")?.value || "";
+    renderAnalyticsDashboard();
+  });
+
+  renderSystemOverview(systemContainer);
+  initAnalyticsDropdowns();
 }
+
+function initAnalyticsDropdowns() {
+  const list = document.querySelector("#analytics-dropdowns");
+  if (!list || list.dataset.bound === "1") return;
+  list.dataset.bound = "1";
+  list.addEventListener("click", (event) => {
+    const toggle = event.target.closest(".dd-toggle[data-an-dd]");
+    if (!toggle || !list.contains(toggle)) return;
+    const card = toggle.closest(".dd-card");
+    if (card) card.classList.toggle("is-open");
+  });
+}
+
+// ═══ System Overview Dashboard (Supervisor Only) ═════════════════════════════
+
+function renderSystemOverview(targetContainer = document.querySelector("#screen-system-overview")) {
+  const container = targetContainer;
+  if (!container) return;
+
+  // SO time filter
+  const soTF = systemOverviewTimeFilter;
+  let allItems = items;
+  if (soTF === "today") {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    allItems = items.filter(i => new Date(i.createdAt) >= todayStart);
+  } else if (soTF !== "all" && soTF !== "custom") {
+    const now = new Date();
+    let sd = new Date(now);
+    if (soTF === "7d") sd.setDate(sd.getDate()-7);
+    else if (soTF === "30d") sd.setDate(sd.getDate()-30);
+    else if (soTF === "90d") sd.setDate(sd.getDate()-90);
+    allItems = items.filter(i => new Date(i.createdAt) >= sd);
+  } else if (soTF === "custom" && systemOverviewCustomStart && systemOverviewCustomEnd) {
+    const sd = new Date(systemOverviewCustomStart + "T00:00:00");
+    const ed = new Date(systemOverviewCustomEnd + "T23:59:59");
+    allItems = items.filter(i => { const d = new Date(i.createdAt); return d >= sd && d <= ed; });
+  }
+  // Department filter
+  const soDeptVal = systemOverviewDeptFilter;
+  if (soDeptVal !== "all") {
+    allItems = allItems.filter(i => i.department === soDeptVal);
+  }
+
+  const challenges = allItems.filter(i => i.type === "challenge");
+  const contributions = allItems.filter(i => i.type === "contribution");
+  const celebrations = allItems.filter(i => i.type === "celebration");
+
+  const openItemIds = allItems.filter(i => isOpenStatus(i.status)).map(i => i.id);
+  const resolvedItemIds = allItems.filter(i => i.status === "resolved" || i.status === "closed").map(i => i.id);
+  const escalatedItemIds = challenges.filter(i => i.status === "escalated").map(i => i.id);
+  const overdueItemIds = allItems.filter(i => i.dueDate && isOpenStatus(i.status) && new Date(i.dueDate + "T23:59:59") < new Date()).map(i => i.id);
+  const challengeIds = challenges.map(i => i.id);
+
+  const totalItems = allItems.length;
+  const openItems = openItemIds.length;
+  const resolvedItems = resolvedItemIds.length;
+  const escalatedItems = escalatedItemIds.length;
+  const overdueItems = overdueItemIds.length;
+
+  // Department workload
+  const deptWorkload = {};
+  const deptItemIdsMap = {};
+  challenges.forEach(i => {
+    const dept = i.department || "Unknown";
+    if (!deptWorkload[dept]) deptWorkload[dept] = { total:0,open:0,resolved:0,escalated:0,overdue:0 };
+    if (!deptItemIdsMap[dept]) deptItemIdsMap[dept] = { total:[],open:[],resolved:[],escalated:[],overdue:[] };
+    deptWorkload[dept].total++; deptItemIdsMap[dept].total.push(i.id);
+    if (isOpenStatus(i.status)) { deptWorkload[dept].open++; deptItemIdsMap[dept].open.push(i.id); }
+    if (i.status==="resolved"||i.status==="closed") { deptWorkload[dept].resolved++; deptItemIdsMap[dept].resolved.push(i.id); }
+    if (i.status==="escalated") { deptWorkload[dept].escalated++; deptItemIdsMap[dept].escalated.push(i.id); }
+    if (i.dueDate && isOpenStatus(i.status) && new Date(i.dueDate+"T23:59:59")<new Date()) { deptWorkload[dept].overdue++; deptItemIdsMap[dept].overdue.push(i.id); }
+  });
+  const deptWorkloadArr = Object.entries(deptWorkload).sort((a,b) => b[1].total - a[1].total);
+
+  // User activity
+  const userActivity = {};
+  const userItemIds = {};
+  allItems.forEach(i => {
+    const user = i.createdBy || "Unknown";
+    if (!userActivity[user]) userActivity[user] = { created:0, resolved:0 };
+    if (!userItemIds[user]) userItemIds[user] = [];
+    userActivity[user].created++; userItemIds[user].push(i.id);
+    if (i.resolvedBy === user) userActivity[user].resolved++;
+  });
+  const topContributors = Object.entries(userActivity).sort((a,b) => (b[1].created+b[1].resolved)-(a[1].created+a[1].resolved)).slice(0,8);
+
+  // Priority
+  const priorityCounts = { high:0, medium:0, low:0 };
+  const priorityIds = { high:[], medium:[], low:[] };
+  challenges.filter(i => isOpenStatus(i.status)).forEach(i => {
+    const p = i.priority || "medium";
+    priorityCounts[p]++; priorityIds[p].push(i.id);
+  });
+
+  // Status funnel
+  const statusCounts = {};
+  const statusItemIds = {};
+  allItems.forEach(i => {
+    statusCounts[i.status] = (statusCounts[i.status]||0)+1;
+    if (!statusItemIds[i.status]) statusItemIds[i.status] = [];
+    statusItemIds[i.status].push(i.id);
+  });
+  const statusOrder = ["new","assigned","in_discussion","escalated","resolved","closed"];
+  const statusLabels = {new:"New",assigned:"Assigned",in_discussion:"In Discussion",escalated:"Escalated",resolved:"Resolved",closed:"Closed"};
+
+  // Bar chart data: Meeting Level
+  const levelData = MEETING_HIERARCHY.map(({key,label}) => {
+    const ch = challenges.filter(i => isOpenStatus(i.status) && (i.meetingLevel||"team_weekly")===key);
+    return { label: label.replace(" Meeting",""), count: ch.length, ids: ch.map(i=>i.id) };
+  });
+  const maxLvl = Math.max(...levelData.map(d=>d.count),1);
+
+  // Root causes
+  const rcMap = {};
+  challenges.filter(i => i.solutionTemplate?.rootCause).forEach(i => {
+    const rc = i.solutionTemplate.rootCause;
+    if (!rcMap[rc]) rcMap[rc] = {count:0,ids:[]};
+    rcMap[rc].count++; rcMap[rc].ids.push(i.id);
+  });
+  const rcArr = Object.entries(rcMap).sort((a,b)=>b[1].count-a[1].count).slice(0,5);
+  const maxRc = rcArr[0]?.[1]?.count||1;
+
+  // Dept breakdown for bar chart
+  const deptBarMap = {};
+  challenges.forEach(i => {
+    const d = i.department;
+    if (!deptBarMap[d]) deptBarMap[d] = {count:0,ids:[]};
+    deptBarMap[d].count++; deptBarMap[d].ids.push(i.id);
+  });
+  const deptBarArr = Object.entries(deptBarMap).sort((a,b)=>b[1].count-a[1].count).slice(0,6);
+  const maxDB = deptBarArr[0]?.[1]?.count||1;
+
+  // Clusters
+  const clusters = buildChallengeClusters();
+  const maxCl = clusters[0]?.count||1;
+
+  // Activity
+  const recentActivity = [];
+  allItems.forEach(i => {
+    if (i.createdAt) recentActivity.push({date:i.createdAt,icon:"📝",text:`<strong>${escapeHtml(i.createdBy||"Unknown")}</strong> created ${escapeHtml(i.type)} <em>${escapeHtml(i.title)}</em>`,id:i.id});
+    if (i.resolvedAt) recentActivity.push({date:i.resolvedAt,icon:"✅",text:`<strong>${escapeHtml(i.resolvedBy||"Unknown")}</strong> resolved <em>${escapeHtml(i.title)}</em>`,id:i.id});
+    if (i.status==="escalated"&&i.details?.escalationMeetingDate) recentActivity.push({date:i.details.escalationMeetingDate,icon:"⚡",text:`<em>${escapeHtml(i.title)}</em> was escalated`,id:i.id});
+  });
+  recentActivity.sort((a,b)=>b.date.localeCompare(a.date));
+  const recentSlice = recentActivity.slice(0,15);
+
+  const maxDeptTotal = deptWorkloadArr[0]?.[1]?.total||1;
+
+  // SO filters state from container
+  const soDept = systemOverviewDeptFilter;
+  const soCustomStart = systemOverviewCustomStart;
+  const soCustomEnd = systemOverviewCustomEnd;
+  const allDepts = [...new Set(items.map(i => i.department))].sort();
+
+  container.innerHTML = `
+    <!-- Time + Dept Filter -->
+    <div class="an-time-filter-bar">
+      <div class="an-time-filter-row">
+        <span class="an-time-filter-label">Period</span>
+        <div class="an-time-filter-btns">
+          ${["all","today","7d","30d","90d","custom"].map(k =>
+            `<button class="an-time-btn so-tf-btn${soTF===k?" is-active":""}" data-so-tf="${k}">${({all:"All Time",today:"Today","7d":"7 Days","30d":"30 Days","90d":"90 Days",custom:"Custom"})[k]}</button>`
+          ).join("")}
+        </div>
+        <select class="so-dept-filter-select" id="so-dept-filter-sel">
+          <option value="all"${soDept==="all"?" selected":""}>All Departments</option>
+          ${allDepts.map(d => `<option value="${escapeHtml(d)}"${soDept===d?" selected":""}>${escapeHtml(d)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="so-custom-row" style="display:${soTF==="custom"?"flex":"none"}">
+        <label class="an-time-custom-label">From <input type="date" class="an-time-custom-input" id="so-custom-start" value="${soCustomStart}"/></label>
+        <label class="an-time-custom-label">To <input type="date" class="an-time-custom-input" id="so-custom-end" value="${soCustomEnd}"/></label>
+        <button class="an-time-btn an-time-apply-btn" id="so-custom-apply">Apply</button>
+      </div>
+    </div>
+
+    <!-- Core Stats -->
+    <div class="so-stats-grid" style="margin-bottom:14px">
+      <div class="so-stat-card so-stat-clickable" data-so-popup-title="All Items" data-so-popup-ids='${JSON.stringify(allItems.map(i=>i.id))}'><span class="so-stat-val">${totalItems}</span><span class="so-stat-lbl">Total Items</span></div>
+      <div class="so-stat-card so-stat-open so-stat-clickable" data-so-popup-title="Open Items" data-so-popup-ids='${JSON.stringify(openItemIds)}'><span class="so-stat-val">${openItems}</span><span class="so-stat-lbl">Open</span></div>
+      <div class="so-stat-card so-stat-resolved so-stat-clickable" data-so-popup-title="Resolved Items" data-so-popup-ids='${JSON.stringify(resolvedItemIds)}'><span class="so-stat-val">${resolvedItems}</span><span class="so-stat-lbl">Resolved</span></div>
+      <div class="so-stat-card so-stat-escalated so-stat-clickable" data-so-popup-title="Escalated Items" data-so-popup-ids='${JSON.stringify(escalatedItemIds)}'><span class="so-stat-val">${escalatedItems}</span><span class="so-stat-lbl">Escalated</span></div>
+      <div class="so-stat-card so-stat-overdue so-stat-clickable" data-so-popup-title="Overdue Items" data-so-popup-ids='${JSON.stringify(overdueItemIds)}'><span class="so-stat-val">${overdueItems}</span><span class="so-stat-lbl">Overdue</span></div>
+      <div class="so-stat-card so-stat-clickable" data-so-popup-title="All Challenges" data-so-popup-ids='${JSON.stringify(challengeIds)}'><span class="so-stat-val">${challenges.length}/${contributions.length}/${celebrations.length}</span><span class="so-stat-lbl">Ch / Co / Ce</span></div>
+    </div>
+
+    <!-- Status + Priority -->
+    <div class="so-mid-grid">
+      <div class="panel an-panel-compact">
+        <div class="an-section-head"><span class="an-section-title">Status Pipeline</span></div>
+        <div class="so-funnel">
+          ${statusOrder.map(s => {
+            const cnt = statusCounts[s]||0;
+            const pct = totalItems ? Math.round((cnt/totalItems)*100) : 0;
+            const ids = JSON.stringify(statusItemIds[s]||[]);
+            return `<div class="so-funnel-step${cnt>0?"":" so-funnel-empty"} so-funnel-clickable" data-so-popup-title="${statusLabels[s]} Items" data-so-popup-ids='${ids}'>
+              <div class="so-funnel-bar-wrap"><div class="so-funnel-bar" data-status="${s}" style="width:${Math.max(pct,3)}%"></div></div>
+              <div class="so-funnel-info"><span class="so-funnel-count">${cnt}</span><span class="so-funnel-name">${statusLabels[s]}</span><span class="so-funnel-pct">${pct}%</span></div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+      <div class="panel an-panel-compact">
+        <div class="an-section-head"><span class="an-section-title">Open Priority Matrix</span></div>
+        <div class="so-priority-grid">
+          ${[{k:"high",label:"High",clr:"#ef4444"},{k:"medium",label:"Medium",clr:"#f59e0b"},{k:"low",label:"Low",clr:"#22c55e"}].map(p => {
+            const cnt = priorityCounts[p.k]||0;
+            const oc = challenges.filter(i=>isOpenStatus(i.status)).length||1;
+            const pct = Math.round((cnt/oc)*100);
+            const ids = JSON.stringify(priorityIds[p.k]||[]);
+            return `<div class="so-priority-item so-priority-clickable" data-so-popup-title="${p.label} Priority" data-so-popup-ids='${ids}'>
+              <div class="so-priority-header"><span class="so-priority-dot" style="background:${p.clr}"></span><span class="so-priority-label">${p.label}</span><span class="so-priority-count">${cnt}</span></div>
+              <div class="so-priority-track"><div class="so-priority-fill" style="width:${pct}%;background:${p.clr}"></div></div>
+              <span class="so-priority-pct">${pct}%</span>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 Bar Chart Panels -->
+    <div class="an-lower-grid">
+      <div class="panel an-panel-compact">
+        <div class="an-section-head"><span class="an-section-title">Open Challenges by Meeting Level</span><span class="an-section-hint">Click a row to see cases</span></div>
+        <div class="an-bar-list">
+          ${levelData.map(d => `<div class="an-bar-row an-bar-clickable" data-popup-title="Open Challenges — ${d.label}" data-popup-ids='${JSON.stringify(d.ids)}'>
+            <span class="an-bar-lbl">${d.label}</span><div class="an-bar-track"><div class="an-bar-fill" style="width:${Math.round((d.count/maxLvl)*100)}%"></div></div><span class="an-bar-cnt">${d.count}</span>
+          </div>`).join("")}
+        </div>
+      </div>
+      <div class="panel an-panel-compact">
+        <div class="an-section-head"><span class="an-section-title">Top Root Causes</span><span class="an-section-hint">Click a row to see cases</span></div>
+        <div class="an-bar-list">
+          ${rcArr.length ? rcArr.map(([label,{count,ids}]) => `<div class="an-bar-row an-bar-clickable" data-popup-title="Root Cause: ${escapeHtml(label)}" data-popup-ids='${JSON.stringify(ids)}'>
+            <span class="an-bar-lbl">${escapeHtml(label)}</span><div class="an-bar-track"><div class="an-bar-fill" style="width:${Math.round((count/maxRc)*100)}%"></div></div><span class="an-bar-cnt">${count}</span>
+          </div>`).join("") : '<p class="an-empty">No root cause data yet.</p>'}
+        </div>
+      </div>
+      <div class="panel an-panel-compact">
+        <div class="an-section-head"><span class="an-section-title">Challenges by Department</span><span class="an-section-hint">Click a row to see cases</span></div>
+        <div class="an-bar-list">
+          ${deptBarArr.map(([dept,{count,ids}]) => `<div class="an-bar-row an-bar-clickable" data-popup-title="Department: ${escapeHtml(dept)}" data-popup-ids='${JSON.stringify(ids)}'>
+            <span class="an-bar-lbl">${escapeHtml(dept)}</span><div class="an-bar-track"><div class="an-bar-fill" style="width:${Math.round((count/maxDB)*100)}%"></div></div><span class="an-bar-cnt">${count}</span>
+          </div>`).join("")}
+        </div>
+      </div>
+      <div class="panel an-panel-compact">
+        <div class="an-section-head"><span class="an-section-title">Challenge Clusters</span><span class="an-section-hint">Click a row to see cases</span></div>
+        <div class="an-bar-list">
+          ${clusters.map(({label,count,items:cIds}) => `<div class="an-bar-row an-bar-clickable" data-popup-title="Cluster: ${escapeHtml(label.replace(/^\S+\s/,''))}" data-popup-ids='${JSON.stringify(cIds||[])}'>
+            <span class="an-bar-lbl">${escapeHtml(label)}</span><div class="an-bar-track"><div class="an-bar-fill" style="width:${Math.round((count/maxCl)*100)}%"></div></div><span class="an-bar-cnt">${count}</span>
+          </div>`).join("")}
+        </div>
+      </div>
+    </div>
+
+    <!-- Dept Table -->
+    <div class="panel an-panel-compact">
+      <div class="an-section-head"><span class="an-section-title">Department Workload</span></div>
+      <div class="so-dept-table-wrap">
+        <table class="so-dept-table"><thead><tr><th>Department</th><th>Total</th><th>Open</th><th>Resolved</th><th>Escalated</th><th>Overdue</th><th>Workload</th></tr></thead>
+        <tbody>${deptWorkloadArr.map(([dept,d]) => {
+          const di = deptItemIdsMap[dept]||{total:[],open:[],resolved:[],escalated:[],overdue:[]};
+          return `<tr>
+            <td class="so-dept-name so-dept-clickable" data-so-popup-title="${escapeHtml(dept)} — All" data-so-popup-ids='${JSON.stringify(di.total)}'>${escapeHtml(dept)}</td>
+            <td class="so-dept-clickable" data-so-popup-title="${escapeHtml(dept)} — All" data-so-popup-ids='${JSON.stringify(di.total)}'><strong>${d.total}</strong></td>
+            <td class="so-dept-clickable" data-so-popup-title="${escapeHtml(dept)} — Open" data-so-popup-ids='${JSON.stringify(di.open)}'>${d.open}</td>
+            <td class="so-dept-clickable" data-so-popup-title="${escapeHtml(dept)} — Resolved" data-so-popup-ids='${JSON.stringify(di.resolved)}'>${d.resolved}</td>
+            <td class="so-dept-clickable" data-so-popup-title="${escapeHtml(dept)} — Escalated" data-so-popup-ids='${JSON.stringify(di.escalated)}'>${d.escalated>0?`<span class="so-dept-esc">${d.escalated}</span>`:"0"}</td>
+            <td class="so-dept-clickable" data-so-popup-title="${escapeHtml(dept)} — Overdue" data-so-popup-ids='${JSON.stringify(di.overdue)}'>${d.overdue>0?`<span class="so-dept-overdue">${d.overdue}</span>`:"0"}</td>
+            <td><div class="so-dept-bar-track"><div class="so-dept-bar-fill" style="width:${Math.round((d.total/maxDeptTotal)*100)}%"></div></div></td>
+          </tr>`; }).join("")}</tbody></table>
+      </div>
+    </div>
+
+    <!-- Contributors + Activity -->
+    <div class="so-bottom-grid">
+      <div class="panel an-panel-compact">
+        <div class="an-section-head"><span class="an-section-title">Top Contributors</span></div>
+        <div class="so-contrib-list">
+          ${topContributors.map(([user,stats],idx) => {
+            const ini = user.split(" ").map(w=>w[0]||"").join("").toUpperCase().slice(0,2);
+            const ta = stats.created+stats.resolved;
+            const ma = (topContributors[0]?.[1]?.created||0)+(topContributors[0]?.[1]?.resolved||0)||1;
+            const ids = JSON.stringify(userItemIds[user]||[]);
+            return `<div class="so-contrib-row so-contrib-clickable" data-so-popup-title="Items by ${escapeHtml(user)}" data-so-popup-ids='${ids}'>
+              <span class="so-contrib-rank">${idx+1}</span><span class="so-contrib-avatar">${ini}</span>
+              <div class="so-contrib-info"><span class="so-contrib-name">${escapeHtml(user)}</span><span class="so-contrib-detail">${stats.created} created · ${stats.resolved} resolved</span></div>
+              <div class="so-contrib-bar-track"><div class="so-contrib-bar-fill" style="width:${Math.round((ta/ma)*100)}%"></div></div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+      <div class="panel an-panel-compact">
+        <div class="an-section-head"><span class="an-section-title">Recent Activity Stream</span></div>
+        <div class="so-activity-stream">
+          ${recentSlice.length ? recentSlice.map(a =>
+            `<div class="so-activity-item" data-activity-id="${a.id}"><span class="so-activity-icon">${a.icon}</span><div class="so-activity-body"><span class="so-activity-text">${a.text}</span><span class="so-activity-date">${a.date}</span></div></div>`
+          ).join("") : '<p class="an-empty">No recent activity.</p>'}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Wire clickable stats/funnel/priority/dept/contrib
+  container.querySelectorAll("[data-so-popup-title]").forEach(el => {
+    el.style.cursor = "pointer";
+    el.addEventListener("click", e => {
+      e.stopPropagation();
+      const ids = JSON.parse(el.dataset.soPopupIds||"[]");
+      if (ids.length) openAnalyticsPopup(el.dataset.soPopupTitle, ids);
+      else showToast("No items for this metric.");
+    });
+  });
+
+  // Wire bar chart rows
+  container.querySelectorAll(".an-bar-clickable").forEach(row => {
+    row.addEventListener("click", () => {
+      const ids = JSON.parse(row.dataset.popupIds||"[]");
+      openAnalyticsPopup(row.dataset.popupTitle, ids);
+    });
+  });
+
+  // Wire activity
+  container.querySelectorAll(".so-activity-item[data-activity-id]").forEach(el => {
+    el.addEventListener("click", () => openDetailDrawer(el.dataset.activityId));
+  });
+
+  // Wire SO time filter
+  container.querySelectorAll(".so-tf-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      systemOverviewTimeFilter = btn.dataset.soTf;
+      renderSystemOverview(container);
+    });
+  });
+  const soCustomApply = container.querySelector("#so-custom-apply");
+  if (soCustomApply) soCustomApply.addEventListener("click", () => {
+    systemOverviewCustomStart = container.querySelector("#so-custom-start")?.value || "";
+    systemOverviewCustomEnd = container.querySelector("#so-custom-end")?.value || "";
+    renderSystemOverview(container);
+  });
+  const soDeptSel = container.querySelector("#so-dept-filter-sel");
+  if (soDeptSel) soDeptSel.addEventListener("change", () => {
+    systemOverviewDeptFilter = soDeptSel.value;
+    renderSystemOverview(container);
+  });
+}
+
+
 
 // ═══ V2: Meeting Hierarchy Visual (Tutor Feedback §6) ═══════════════════
 
@@ -5694,39 +7231,400 @@ function populateDeptFilters() {
   });
 }
 
-// ═══ V2: Render Notifications Screen (Tutor Feedback §1 Notes) ══════════
+// ═══ Settings Screen (role-aware) ════════════════════════════════════════
 
-function renderNotifications() {
-  const container = document.querySelector("#notifications-list");
+function notificationIconForType(type) {
+  return {
+    assign: "Assignment",
+    escalate: "Escalation",
+    resolve: "Resolution",
+    overdue: "Overdue",
+    like: "📌",
+    info: "Info",
+  }[type] || "Info";
+}
+
+function notificationTypeClass(type) {
+  return {
+    assign: "assign",
+    escalate: "escalate",
+    resolve: "resolve",
+    overdue: "overdue",
+    like: "like",
+    info: "info",
+  }[type] || "info";
+}
+
+function renderSettings() {
+  const container = document.querySelector("#screen-settings");
   if (!container) return;
-
-  const notifs = loadNotifications();
-  if (!notifs.length) {
-    container.innerHTML = '<p style="color:var(--ink-soft);font-weight:500">No notifications yet. Notifications appear when challenges are assigned to departments, escalated, or resolved.</p>';
+  const supervisor = isSupervisorView();
+  syncSettingsNavLabel();
+  if (!supervisor) {
+    container.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Settings</h2>
+          <p>Settings are available in supervisor view.</p>
+        </div>
+      </div>
+    `;
     return;
   }
 
-  container.innerHTML = notifs.map((notif) => {
-    const iconClass = notif.type || "info";
-    const iconEmoji = { assign: "📋", escalate: "⬆️", resolve: "✅", overdue: "⏰", info: "ℹ️" }[iconClass] || "📌";
-    const timeAgo = getTimeAgo(notif.timestamp);
-    return `
-      <div class="notif-item ${notif.read ? "" : "unread"}" data-notif-id="${notif.id}">
-        <div class="notif-icon ${iconClass}">${iconEmoji}</div>
-        <div class="notif-body">
-          <h4>${escapeHtml(notif.title)}</h4>
-          <p>${escapeHtml(notif.body)}</p>
-          ${notif.itemId ? `<p class="notif-meta">Item: ${notif.itemId}${notif.department ? " · " + notif.department : ""}</p>` : ""}
-        </div>
-        <div class="notif-actions">
-          <span class="notif-time">${timeAgo}</span>
-        </div>
-      </div>`;
-  }).join("");
+  const totalItems = items.length;
+  const openItems = items.filter((item) => isOpenStatus(item.status)).length;
+  const resolvedItems = items.filter((item) => item.status === "resolved").length;
+  const closedItems = items.filter((item) => item.status === "closed").length;
+  const escalatedItems = items.filter((item) => item.status === "escalated").length;
+  const overdueItems = items.filter((item) => item.dueDate && isOpenStatus(item.status) && isOverdue(item)).length;
+  const challenges = items.filter((item) => item.type === "challenge").length;
+  const contributions = items.filter((item) => item.type === "contribution").length;
+  const celebrations = items.filter((item) => item.type === "celebration").length;
+  const notifications = loadNotifications();
+  const statusOptions = ["new", "assigned", "in_discussion", "escalated", "resolved", "closed"];
 
-  // Mark as read
-  notifs.forEach((n) => n.read = true);
-  saveNotifications(notifs);
+  const currentUser = _currentUser();
+  const logPreview = meetingLog.length
+    ? meetingLog.slice(0, 24).map((entry) => `<div class="admin-log-item">${escapeHtml(entry)}</div>`).join("")
+    : '<p class="dash-empty">No audit entries yet in this session.</p>';
+
+  const notifRows = notifications.length
+    ? notifications.slice(0, 28).map((notif) => `
+        <div class="admin-notif-item ${notif.read ? "" : "is-unread"}" data-notif-id="${notif.id}">
+          <div class="admin-notif-main">
+            <span class="admin-notif-icon admin-notif-icon--${notificationTypeClass(notif.type)}">${notificationIconForType(notif.type)}</span>
+            <div class="admin-notif-copy">
+              <p class="admin-notif-title">${escapeHtml(notif.title)}</p>
+              <p class="admin-notif-body">${escapeHtml(truncate(notif.body, 120))}</p>
+            </div>
+          </div>
+          <div class="admin-notif-actions">
+            <button type="button" class="admin-pill-btn" data-admin-notif-read="${notif.id}">Read</button>
+            <button type="button" class="admin-notif-remove" data-admin-notif-remove="${notif.id}" aria-label="Remove notification">&times;</button>
+          </div>
+        </div>
+      `).join("")
+    : '<p class="dash-empty">No notifications yet.</p>';
+
+  container.innerHTML = `
+    <div class="admin-settings-stack">
+      <div class="panel admin-portal-hero">
+        <div class="panel-header">
+          <h2>Admin Settings</h2>
+          <p>Supervisor-only controls for managing the RED in-SYNCC system.</p>
+        </div>
+      </div>
+
+      <div class="panel admin-settings-section">
+        <div class="admin-section-head"><h3>Notifications</h3></div>
+        <div class="admin-section-body">
+          <div id="settings-notifications-list" class="admin-notif-list">${notifRows}</div>
+          <div class="admin-action-row">
+            <button type="button" class="admin-btn-outline" data-settings-action="clear-notifs">Clear All Notifications</button>
+            <button type="button" class="admin-btn-outline" data-settings-action="mark-all-read">Mark All Read</button>
+          </div>
+          <form id="settings-manual-notif-form" class="admin-manual-form">
+            <h4>Send Manual Notification</h4>
+            <input id="settings-manual-title" type="text" placeholder="Notification title" required />
+            <input id="settings-manual-body" type="text" placeholder="Notification body text" required />
+            <select id="settings-manual-type">
+              <option value="info">Info</option>
+              <option value="assign">Assignment</option>
+              <option value="escalate">Escalation</option>
+              <option value="resolve">Resolution</option>
+              <option value="overdue">Overdue</option>
+            </select>
+            <button type="submit" class="admin-btn-primary">Send Notification</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="panel admin-settings-section">
+        <div class="admin-section-head"><h3>Items &amp; Data</h3></div>
+        <div class="admin-section-body">
+          <div class="admin-metric-grid">
+            <div class="admin-metric-card"><strong>${totalItems}</strong><span>Total Items</span></div>
+            <div class="admin-metric-card"><strong class="metric-open">${openItems}</strong><span>Open</span></div>
+            <div class="admin-metric-card"><strong class="metric-resolved">${resolvedItems}</strong><span>Resolved</span></div>
+            <div class="admin-metric-card"><strong>${closedItems}</strong><span>Closed</span></div>
+            <div class="admin-metric-card"><strong class="metric-escalated">${escalatedItems}</strong><span>Escalated</span></div>
+            <div class="admin-metric-card"><strong class="metric-overdue">${overdueItems}</strong><span>Overdue</span></div>
+            <div class="admin-metric-card"><strong>${challenges}</strong><span>Challenges</span></div>
+            <div class="admin-metric-card"><strong>${contributions}</strong><span>Contributions</span></div>
+            <div class="admin-metric-card"><strong>${celebrations}</strong><span>Celebrations</span></div>
+          </div>
+
+          <h4 class="admin-subhead">Bulk Actions</h4>
+          <div class="admin-action-row">
+            <button type="button" class="admin-btn-outline" id="settings-close-resolved">Close All Resolved Items</button>
+            <button type="button" class="admin-btn-outline" id="settings-reevaluate-overdue">Re-evaluate Overdue Flags</button>
+            <button type="button" class="admin-btn-outline" id="settings-export-data">Export All Data (JSON)</button>
+          </div>
+
+          <h4 class="admin-subhead">Delete by Status</h4>
+          <div class="admin-delete-row">
+            <select id="settings-delete-status">
+              <option value="">-- Select status --</option>
+              ${statusOptions.map((status) => `<option value="${status}">${toLabel(status)}</option>`).join("")}
+            </select>
+            <button type="button" class="admin-btn-danger" id="settings-delete-by-status">Delete Items with Status</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel admin-settings-section">
+        <div class="admin-section-head"><h3>System Settings</h3></div>
+        <div class="admin-section-body">
+          <h4 class="admin-subhead">Current User Name</h4>
+          <div class="admin-inline-controls">
+            <input id="settings-user-name" type="text" value="${escapeHtml(currentUser)}" />
+            <button type="button" class="admin-btn-primary" id="settings-apply-name">Apply Name</button>
+          </div>
+
+          <h4 class="admin-subhead">Meeting Week Override</h4>
+          <div class="admin-inline-controls">
+            <input id="settings-meeting-week" type="date" value="${activeMeetingWeek}" />
+            <button type="button" class="admin-btn-primary" id="settings-set-week">Set Meeting Week</button>
+            <button type="button" class="admin-btn-outline" id="settings-reset-week">Reset to Current</button>
+          </div>
+
+          <h4 class="admin-subhead">Danger Zone</h4>
+          <div class="admin-action-row">
+            <button type="button" class="admin-btn-danger" id="settings-reset-data">Reset All Data to Default</button>
+            <button type="button" class="admin-btn-danger" id="settings-clear-storage">Clear All Local Storage</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel admin-settings-section">
+        <div class="admin-section-head"><h3>Audit Log</h3></div>
+        <div class="admin-section-body">
+          <div class="admin-action-row">
+            <button type="button" class="admin-btn-outline" id="settings-clear-log">Clear Log</button>
+            <button type="button" class="admin-btn-outline" id="settings-export-log">Export Log</button>
+          </div>
+          <div class="admin-log-list">${logPreview}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.querySelectorAll("[data-admin-notif-read]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const notifId = String(btn.dataset.adminNotifRead || "");
+      if (!notifId) return;
+      const updated = loadNotifications().map((n) => n.id === notifId ? { ...n, read: true } : n);
+      saveNotifications(updated);
+      refreshAll();
+      showToast("Notification marked as read.");
+    });
+  });
+
+  container.querySelectorAll("[data-admin-notif-remove]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const notifId = String(btn.dataset.adminNotifRemove || "");
+      if (!notifId) return;
+      const updated = loadNotifications().filter((n) => n.id !== notifId);
+      saveNotifications(updated);
+      refreshAll();
+      showToast("Notification removed.");
+    });
+  });
+
+  const clearNotifsBtn = container.querySelector('[data-settings-action="clear-notifs"]');
+  if (clearNotifsBtn) {
+    clearNotifsBtn.addEventListener("click", () => {
+      saveNotifications([]);
+      refreshAll();
+      showToast("All notifications cleared.");
+    });
+  }
+
+  const markAllReadBtn = container.querySelector('[data-settings-action="mark-all-read"]');
+  if (markAllReadBtn) {
+    markAllReadBtn.addEventListener("click", () => {
+      const updated = loadNotifications().map((n) => ({ ...n, read: true }));
+      saveNotifications(updated);
+      refreshAll();
+      showToast("All notifications marked as read.");
+    });
+  }
+
+  const manualForm = container.querySelector("#settings-manual-notif-form");
+  if (manualForm) {
+    manualForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const title = String(container.querySelector("#settings-manual-title")?.value || "").trim();
+      const body = String(container.querySelector("#settings-manual-body")?.value || "").trim();
+      const type = String(container.querySelector("#settings-manual-type")?.value || "info");
+      if (!title || !body) {
+        showToast("Please enter title and body.");
+        return;
+      }
+      addNotification({ type, title, body, department: "System" });
+      refreshAll();
+      showToast("Manual notification sent.");
+    });
+  }
+
+  const closeResolvedBtn = container.querySelector("#settings-close-resolved");
+  if (closeResolvedBtn) {
+    closeResolvedBtn.addEventListener("click", () => {
+      const target = items.filter((item) => item.status === "resolved");
+      if (!target.length) {
+        showToast("No resolved items to close.");
+        return;
+      }
+      target.forEach((item) => {
+        item.status = "closed";
+        item.updates = item.updates || [];
+        item.updates.push({ type: "status_change", note: `Closed via Admin Settings by ${_currentUser()}.` });
+      });
+      meetingLog.unshift(`${target.length} resolved item(s) closed by ${_currentUser()}.`);
+      refreshAll();
+      showToast(`${target.length} resolved item(s) moved to closed.`);
+    });
+  }
+
+  const reevaluateOverdueBtn = container.querySelector("#settings-reevaluate-overdue");
+  if (reevaluateOverdueBtn) {
+    reevaluateOverdueBtn.addEventListener("click", () => {
+      const overdueCount = items.filter((item) => item.dueDate && isOpenStatus(item.status) && isOverdue(item)).length;
+      meetingLog.unshift(`Overdue flags re-evaluated by ${_currentUser()} (${overdueCount} currently overdue).`);
+      refreshAll();
+      showToast(`Overdue check complete: ${overdueCount} item(s) overdue.`);
+    });
+  }
+
+  const exportDataBtn = container.querySelector("#settings-export-data");
+  if (exportDataBtn) {
+    exportDataBtn.addEventListener("click", () => {
+      const payload = JSON.stringify(items, null, 2);
+      const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `red-sync-items-${todayISO()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast("Data export generated.");
+    });
+  }
+
+  const deleteByStatusBtn = container.querySelector("#settings-delete-by-status");
+  if (deleteByStatusBtn) {
+    deleteByStatusBtn.addEventListener("click", () => {
+      const selected = String(container.querySelector("#settings-delete-status")?.value || "");
+      if (!selected) {
+        showToast("Select a status first.");
+        return;
+      }
+      const matching = items.filter((item) => item.status === selected).length;
+      if (!matching) {
+        showToast(`No items found with status ${toLabel(selected)}.`);
+        return;
+      }
+      const approved = window.confirm(`Delete ${matching} item(s) with status ${toLabel(selected)}?`);
+      if (!approved) return;
+      items = items.filter((item) => item.status !== selected);
+      meetingLog.unshift(`${matching} item(s) deleted by status (${toLabel(selected)}) by ${_currentUser()}.`);
+      saveItems();
+      refreshAll();
+      showToast(`${matching} item(s) deleted.`);
+    });
+  }
+
+  const applyNameBtn = container.querySelector("#settings-apply-name");
+  if (applyNameBtn) {
+    applyNameBtn.addEventListener("click", () => {
+      const nextName = String(container.querySelector("#settings-user-name")?.value || "").trim();
+      if (!nextName) {
+        showToast("Please enter a valid name.");
+        return;
+      }
+      const createdByInput = document.querySelector('#new-item-form [name="createdBy"]');
+      if (createdByInput) createdByInput.value = nextName;
+      refreshAll();
+      showToast("User name updated.");
+    });
+  }
+
+  const setWeekBtn = container.querySelector("#settings-set-week");
+  if (setWeekBtn) {
+    setWeekBtn.addEventListener("click", () => {
+      const selected = String(container.querySelector("#settings-meeting-week")?.value || "");
+      if (!selected) {
+        showToast("Select a meeting week date first.");
+        return;
+      }
+      meetingWeekView = "current";
+      activeMeetingWeek = mondayOfWeek(selected);
+      refreshAll();
+      showToast(`Meeting week set to ${activeMeetingWeek}.`);
+    });
+  }
+
+  const resetWeekBtn = container.querySelector("#settings-reset-week");
+  if (resetWeekBtn) {
+    resetWeekBtn.addEventListener("click", () => {
+      meetingWeekView = "current";
+      activeMeetingWeek = upcomingMeetingMondayISO();
+      refreshAll();
+      showToast("Meeting week reset to current.");
+    });
+  }
+
+  const resetDataBtn = container.querySelector("#settings-reset-data");
+  if (resetDataBtn) {
+    resetDataBtn.addEventListener("click", () => {
+      if (!window.confirm("Reset all items to default dataset? This will overwrite current local data.")) return;
+      items = normalizeItemFields(structuredClone(initialItems));
+      meetingLog.length = 0;
+      saveItems();
+      refreshAll();
+      showToast("Data reset to default.");
+    });
+  }
+
+  const clearStorageBtn = container.querySelector("#settings-clear-storage");
+  if (clearStorageBtn) {
+    clearStorageBtn.addEventListener("click", () => {
+      if (!window.confirm("Clear local RED in-SYNCC storage and reload?")) return;
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("red-sync-"))
+        .forEach((key) => localStorage.removeItem(key));
+      window.location.reload();
+    });
+  }
+
+  const clearLogBtn = container.querySelector("#settings-clear-log");
+  if (clearLogBtn) {
+    clearLogBtn.addEventListener("click", () => {
+      meetingLog.length = 0;
+      refreshAll();
+      showToast("Audit log cleared.");
+    });
+  }
+
+  const exportLogBtn = container.querySelector("#settings-export-log");
+  if (exportLogBtn) {
+    exportLogBtn.addEventListener("click", () => {
+      const payload = meetingLog.length ? meetingLog.join("\n") : "No audit entries.";
+      const blob = new Blob([payload], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `red-sync-audit-log-${todayISO()}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast("Audit log exported.");
+    });
+  }
 }
 
 function getTimeAgo(isoStr) {
@@ -5769,7 +7667,7 @@ function refreshAll() {
   renderAssistantMessages();
   renderRecap();
   renderAnalyticsDashboard();
-  renderNotifications();
+  renderSettings();
   showNotificationBanner();
   applyRolePermissions();
   saveItems();
@@ -5891,9 +7789,13 @@ function requireSupervisorAccess(actionLabel = "This action") {
 }
 
 function handleMeetingAction(action, itemId) {
-  if (!requireSupervisorAccess("Meeting actions")) return;
   const item = items.find((entry) => entry.id === itemId);
   if (!item) return;
+
+  if (action === "edit") {
+    openEditItemPrompt(itemId);
+    return;
+  }
 
   if (action === "assign") {
     const owner = window.prompt("Assign owner (name):", item.stakeholders[0] || "");
@@ -5927,55 +7829,24 @@ function handleMeetingAction(action, itemId) {
   }
 
   if (action === "resolve") {
-    const resolvedByInput = window.prompt(
-      "Resolved by (name):",
-      item.resolvedBy || item.stakeholders[0] || ""
-    );
-    if (resolvedByInput === null) return;
-    const resolvedBy = resolvedByInput.trim();
-    if (!resolvedBy) {
-      showToast("Please enter who resolved this item.");
+    if (item.type === "challenge") {
+      openResolveWizard(itemId);
       return;
     }
-
+    const resolvedByInput = window.prompt("Resolved by (name):", item.resolvedBy || item.stakeholders[0] || "");
+    if (resolvedByInput === null) return;
+    const resolvedBy = resolvedByInput.trim();
+    if (!resolvedBy) { showToast("Please enter who resolved this item."); return; }
     let solutionText = item.solution || "";
-
-    if (item.type === "challenge") {
-      const built = buildSolutionTemplate(item.solutionTemplate || {});
-      if (!built) return;
-      solutionText = built.solutionText.trim();
-      if (solutionText.length < 20) {
-        showToast("Please provide specific action steps and context (solution too short).");
-        return;
-      }
-      item.solutionTemplate = built.template;
-    } else {
-      const entered = window.prompt("Optional: add a solution or learning note:", item.solution || "");
-      if (entered !== null) solutionText = entered.trim();
-    }
-
+    const entered = window.prompt("Optional: add a solution or learning note:", item.solution || "");
+    if (entered !== null) solutionText = entered.trim();
     item.resolvedBy = resolvedBy;
     item.updates.push({ type: "meeting_note", note: `Resolved by ${resolvedBy}.` });
-
-    if (solutionText) {
-      item.solution = solutionText;
-      item.updates.push({ type: "solution_note", note: `Solution documented: ${solutionText}` });
-    }
-
+    if (solutionText) { item.solution = solutionText; item.updates.push({ type: "solution_note", note: `Solution documented: ${solutionText}` }); }
     updateItemStatus(itemId, "resolved");
-    meetingLog.unshift(
-      `${item.id}: Marked as resolved by ${resolvedBy}${item.solution ? " with documented solution." : "."}`
-    );
+    meetingLog.unshift(`${item.id}: Marked as resolved by ${resolvedBy}${item.solution ? " with documented solution." : "."}`);
     showToast(`${item.id} resolved by ${resolvedBy}`);
-
-    // V2: Generate resolution notification (Tutor Feedback §4)
-    addNotification({
-      type: "resolve",
-      itemId: item.id,
-      title: `Challenge resolved: ${item.title}`,
-      body: `Resolved by ${resolvedBy}. ${item.assignedToDept ? `Originally assigned to ${item.assignedToDept} department.` : ""} The submitter has updated the status.`,
-      department: item.department,
-    });
+    addNotification({ type: "resolve", itemId: item.id, title: `Challenge resolved: ${item.title}`, body: `Resolved by ${resolvedBy}.`, department: item.department });
   }
 
   if (action === "defer") {
@@ -5992,6 +7863,27 @@ function handleMeetingAction(action, itemId) {
 function registerEvents() {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => switchTab(tab.dataset.screen));
+  });
+
+  // Left rail collapsible sections (My Focus, Notifications)
+  document.querySelectorAll(".left-rail-section-toggle[data-lr-toggle]").forEach(head => {
+    head.addEventListener("click", (e) => {
+      // Don't toggle if clicking the Open button
+      if (e.target.closest(".left-rail-link-btn")) return;
+      const section = document.querySelector("#" + head.dataset.lrToggle);
+      if (section) section.classList.toggle("is-collapsed");
+    });
+  });
+
+  // Hero metric tiles — supervisor click to drill down
+  document.querySelectorAll(".metric-tile[data-metric-key]").forEach((tile) => {
+    tile.addEventListener("click", () => {
+      if (!isSupervisorView()) return;
+      const ids = tile._metricIds || [];
+      const key = tile.dataset.metricKey;
+      const title = key === "open" ? "Open Items" : "Overdue Items";
+      openAnalyticsPopup(title, ids);
+    });
   });
 
   const leftRail = document.querySelector("#left-rail");
@@ -6021,6 +7913,14 @@ function registerEvents() {
   const createTitleInput = document.querySelector('#new-item-form [name="title"]');
   if (createTitleInput) {
     createTitleInput.addEventListener("input", renderCreateDescriptionSuggestions);
+  }
+  const createStakeholdersInput = document.querySelector('#new-item-form [name="stakeholders"]');
+  if (createStakeholdersInput) {
+    createStakeholdersInput.addEventListener("input", renderCreateDescriptionSuggestions);
+  }
+  const createAssignedDeptSelect = document.querySelector("#assign-to-dept");
+  if (createAssignedDeptSelect) {
+    createAssignedDeptSelect.addEventListener("change", renderCreateDescriptionSuggestions);
   }
   const createSimilarCases = document.querySelector("#create-similar-cases");
   if (createSimilarCases) {
@@ -6126,8 +8026,15 @@ function registerEvents() {
       const jumpButton = event.target.closest("[data-personal-target]");
       if (jumpButton) {
         if (jumpButton.dataset.personalTarget === "notif-center") {
-          const notifSection = document.querySelector("#left-rail-notifications");
-          notifSection?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          if (isSupervisorView()) {
+            switchTab("settings");
+            const notifSection = document.querySelector("#settings-notifications-list");
+            notifSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+          } else {
+            const notifSection = document.querySelector("#lr-section-notifs");
+            if (notifSection) notifSection.classList.remove("is-collapsed");
+            notifSection?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
           return;
         }
         openDashboardDropdown(jumpButton.dataset.personalTarget);
@@ -6142,6 +8049,7 @@ function registerEvents() {
       const itemId = btn.dataset.itemId;
       if (action === "detail") { openDetailDrawer(itemId); }
       else if (action === "fav") { toggleFavorite(itemId); }
+      else if (action === "edit") { openEditItemPrompt(itemId); }
       else if (action === "assistant") {
         const item = items.find(i => i.id === itemId);
         if (!item) return;
@@ -6190,11 +8098,16 @@ function registerEvents() {
   if (detailContent) {
     detailContent.addEventListener("click", (event) => {
       const supervisorOnlyControl = event.target.closest(
-        '[data-action="mark-solved-inline"], [data-action="escalate-inline"], [data-action="delete-item"], [data-action="delete-comment"], [data-action="quick-escalate"], [data-action="ignore-recurring-esc"], [data-action="edit-solution"], [data-qa]'
+        '[data-action="mark-solved-inline"], [data-action="escalate-inline"], [data-action="delete-item"], [data-action="delete-comment"], [data-action="quick-escalate"], [data-action="ignore-recurring-esc"], [data-action="edit-solution"], [data-action="edit-item"], [data-qa]'
       );
       if (supervisorOnlyControl && !requireSupervisorAccess("Edit actions")) return;
 
       // Inline Solution: Save
+      const resolveWizBtn = event.target.closest('[data-action="open-resolve-wizard"]');
+      if (resolveWizBtn) {
+        openResolveWizard(resolveWizBtn.dataset.itemId);
+        return;
+      }
       const saveBtn = event.target.closest('[data-action="save-inline-solution"]');
       if (saveBtn) {
         const itemId = saveBtn.dataset.itemId;
@@ -6282,6 +8195,11 @@ function registerEvents() {
       // V3: Quick Actions Bar
       const qaBtn = event.target.closest("[data-qa]");
       if (qaBtn && qaBtn.dataset.itemId) { handleMeetingAction(qaBtn.dataset.qa, qaBtn.dataset.itemId); return; }
+      const editItemBtn = event.target.closest('button[data-action="edit-item"][data-item-id]');
+      if (editItemBtn) {
+        openEditItemPrompt(editItemBtn.dataset.itemId);
+        return;
+      }
       // V3: Delete from detail drawer
       const delBtn = event.target.closest('button[data-action="delete-item"][data-item-id]');
       if (delBtn) { deleteArchiveItem(delBtn.dataset.itemId); return; }
@@ -6393,9 +8311,6 @@ function registerEvents() {
     });
   }
 
-  // Analytics tab
-  const analyticsTab = document.querySelector("[data-screen='analytics']");
-  if (analyticsTab) analyticsTab.addEventListener("click", renderAnalyticsDashboard);
   document.querySelector("#detail-content").addEventListener("click", (event) => {
     const levelBtn = event.target.closest(".sim-level-btn[data-sim-level]");
     if (levelBtn) {
@@ -6437,17 +8352,71 @@ function registerEvents() {
     });
   }
 
-  // V2: Role selector (Tutor Feedback §1)
+  // Role toggle buttons (replaces old role selector)
+  const roleToggle = document.querySelector("#role-toggle");
+  const heroToggle = document.querySelector("#role-toggle-hero");
   const roleSelector = document.querySelector("#role-selector");
+
+  function syncRoleToggles(role) {
+    [roleToggle, heroToggle].forEach((tog) => {
+      if (!tog) return;
+      tog.querySelectorAll(".role-toggle-btn").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.dataset.role === role);
+      });
+    });
+    if (roleSelector) roleSelector.value = role;
+    syncSettingsNavLabel();
+  }
+
+  function handleRoleChange(newRole) {
+    if (newRole === activeRoleView) return;
+    activeRoleView = newRole;
+    syncRoleToggles(newRole);
+    document.body.classList.toggle("sales-rep-view", newRole === "sales_rep");
+    switchTab(newRole === "supervisor" ? "analytics" : "dashboard");
+    refreshAll();
+    if (!sessionStorage.getItem("ob-role-shown")) {
+      sessionStorage.setItem("ob-role-shown", "1");
+      openOnboarding(newRole === "supervisor" ? 5 : 0);
+    }
+  }
+
   if (roleSelector) {
     activeRoleView = normalizeRoleView(roleSelector.value);
-    roleSelector.value = activeRoleView;
-    roleSelector.addEventListener("change", () => {
-      activeRoleView = normalizeRoleView(roleSelector.value);
-      roleSelector.value = activeRoleView;
-      refreshAll();
-    });
   }
+  syncRoleToggles(activeRoleView);
+
+  [roleToggle, heroToggle].forEach((tog) => {
+    if (!tog) return;
+    tog.addEventListener("click", (e) => {
+      const btn = e.target.closest(".role-toggle-btn[data-role]");
+      if (!btn) return;
+      handleRoleChange(btn.dataset.role);
+    });
+  });
+
+  const heroObBtn = document.querySelector("#hero-onboarding-btn");
+  if (heroObBtn) {
+    heroObBtn.addEventListener("click", () => openOnboarding(0));
+  }
+
+  // Info tooltips — delegated on document
+  document.addEventListener("click", (e) => {
+    const ic = e.target.closest(".info-icon");
+    if (!ic) {
+      // close any open tooltip unless clicking inside it
+      if (!e.target.closest(".info-tooltip-bubble")) closeAllTooltips();
+      return;
+    }
+    e.stopPropagation();
+    const alreadyOpen = ic.classList.contains("tooltip-open");
+    closeAllTooltips();
+    if (!alreadyOpen) {
+      ic.classList.add("tooltip-open");
+      const bubble = ic.querySelector(".info-tooltip-bubble");
+      if (bubble) bubble.style.display = "block";
+    }
+  });
 
   const userNameInput = document.querySelector('[name="createdBy"]');
   if (userNameInput) {
@@ -6470,6 +8439,418 @@ function registerEvents() {
   }
 }
 
+// ═══ Onboarding Popup ════════════════════════════════════════════════════════
+
+function openOnboarding(startSlide = 0) {
+  const overlay = document.querySelector("#ob-overlay");
+  if (!overlay) return;
+  const slides = overlay.querySelectorAll(".ob-slide");
+  const total = slides.length;
+  let current = Math.max(0, Math.min(startSlide, total - 1));
+
+  const dotsEl = overlay.querySelector("#ob-dots");
+  const prevBtn = overlay.querySelector("#ob-prev");
+  const nextBtn = overlay.querySelector("#ob-next");
+
+  function render() {
+    slides.forEach((s, i) => s.classList.toggle("is-active", i === current));
+    if (dotsEl) {
+      dotsEl.innerHTML = Array.from({ length: total }, (_, i) =>
+        `<span class="ob-dot${i === current ? " is-active" : ""}"></span>`
+      ).join("");
+    }
+    if (prevBtn) prevBtn.disabled = current === 0;
+    if (nextBtn) nextBtn.textContent = current === total - 1 ? "Got it ✓" : "Next →";
+  }
+
+  if (prevBtn) {
+    const prevClone = prevBtn.cloneNode(true);
+    prevBtn.parentNode.replaceChild(prevClone, prevBtn);
+    prevClone.addEventListener("click", () => { if (current > 0) { current--; render(); } });
+  }
+  if (nextBtn) {
+    const nextClone = nextBtn.cloneNode(true);
+    nextBtn.parentNode.replaceChild(nextClone, nextBtn);
+    nextClone.addEventListener("click", () => {
+      if (current < total - 1) { current++; render(); }
+      else { overlay.classList.remove("is-open"); overlay.setAttribute("aria-hidden", "true"); }
+    });
+  }
+
+  overlay.querySelector("#ob-close")?.addEventListener("click", () => {
+    overlay.classList.remove("is-open"); overlay.setAttribute("aria-hidden", "true");
+  }, { once: true });
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) { overlay.classList.remove("is-open"); overlay.setAttribute("aria-hidden", "true"); }
+  }, { once: true });
+
+  render();
+  overlay.classList.add("is-open");
+  overlay.setAttribute("aria-hidden", "false");
+}
+
+// ═══ Info Tooltips ════════════════════════════════════════════════════════════
+
+function closeAllTooltips() {
+  document.querySelectorAll(".info-icon.tooltip-open").forEach((ic) => {
+    ic.classList.remove("tooltip-open");
+    const b = ic.querySelector(".info-tooltip-bubble");
+    if (b) b.style.display = "none";
+  });
+}
+
+function infoIcon(text, pos = "right") {
+  return `<span class="info-icon" data-tip="${escapeHtml(text)}" tabindex="0" role="button" aria-label="More info">
+    <span class="info-icon-mark">i</span>
+    <span class="info-tooltip-bubble info-tip-${pos}" style="display:none">${escapeHtml(text)}</span>
+  </span>`;
+}
+
+// ═══ Health / SLA Breakdown Popup ════════════════════════════════════════════
+
+function openHealthBreakdownPopup(breakdown) {
+  let popup = document.querySelector("#health-breakdown-popup");
+  if (!popup) {
+    popup = document.createElement("div");
+    popup.id = "health-breakdown-popup";
+    popup.className = "modal";
+    popup.innerHTML = `
+      <div class="modal-card health-popup-card">
+        <div class="modal-head">
+          <h3 id="hp-title">System Health Score Breakdown</h3>
+          <button class="drawer-close" id="health-popup-close">&#x2715;</button>
+        </div>
+        <div class="health-popup-body" id="health-popup-body"></div>
+      </div>`;
+    document.body.appendChild(popup);
+    popup.querySelector("#health-popup-close").addEventListener("click", () => {
+      popup.classList.remove("is-open");
+      popup.setAttribute("aria-hidden", "true");
+    });
+    popup.addEventListener("click", (e) => {
+      if (e.target === popup) { popup.classList.remove("is-open"); popup.setAttribute("aria-hidden", "true"); }
+    });
+  }
+
+  const title = breakdown.title || "System Health Score Breakdown";
+  popup.querySelector("#hp-title").textContent = title;
+
+  const overall = breakdown.overall;
+  const oc = overall >= 70 ? "#22c55e" : overall >= 40 ? "#f59e0b" : "#ef4444";
+  const ol = overall >= 70 ? "Healthy" : overall >= 40 ? "Needs Attention" : "Critical";
+
+  const body = popup.querySelector("#health-popup-body");
+  body.innerHTML = `
+    <div class="hp-overall">
+      <div class="hp-overall-ring">
+        <svg viewBox="0 0 100 100" width="90" height="90">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#f0f0f0" stroke-width="8"/>
+          <circle cx="50" cy="50" r="42" fill="none" stroke="${oc}" stroke-width="8"
+            stroke-dasharray="${Math.round(263.9*overall/100)} 263.9"
+            stroke-linecap="round" transform="rotate(-90 50 50)"/>
+        </svg>
+        <span class="hp-overall-val" style="color:${oc}">${overall}</span>
+      </div>
+      <div class="hp-overall-info">
+        <span class="hp-overall-label" style="color:${oc}">${ol}</span>
+        <span class="hp-overall-desc">Average of ${breakdown.components.length} components</span>
+      </div>
+    </div>
+    ${!breakdown.title ? `<div class="hp-formula">Score = ( Resolution Rate + Overdue Score + SLA Compliance + Knowledge Reuse ) ÷ 4</div>` : ""}
+    <div class="hp-components">
+      ${breakdown.components.map(c => {
+        const clr = c.value >= 70 ? "#22c55e" : c.value >= 40 ? "#f59e0b" : "#ef4444";
+        return `<div class="hp-comp">
+          <div class="hp-comp-head"><span class="hp-comp-label">${c.label}</span><span class="hp-comp-val" style="color:${clr}">${c.value}<small>/${c.max}</small></span></div>
+          <div class="hp-comp-track"><div class="hp-comp-fill" style="width:${Math.min(c.max > 0 ? (c.value/c.max)*100 : 0, 100)}%;background:${clr}"></div></div>
+          <span class="hp-comp-detail">${c.detail}</span>
+        </div>`;
+      }).join("")}
+    </div>
+    <div class="hp-legend">
+      <span class="hp-legend-item"><span class="hp-legend-dot" style="background:#22c55e"></span> ≥70 Healthy</span>
+      <span class="hp-legend-item"><span class="hp-legend-dot" style="background:#f59e0b"></span> 40–69 Needs Attention</span>
+      <span class="hp-legend-item"><span class="hp-legend-dot" style="background:#ef4444"></span> &lt;40 Critical</span>
+    </div>
+  `;
+  popup.classList.add("is-open");
+  popup.setAttribute("aria-hidden", "false");
+}
+
+// ═══ Resolve Wizard — Multi-Step Modal ═══════════════════════════════════════
+
+function openResolveWizard(itemId) {
+  const item = items.find(e => e.id === itemId);
+  if (!item) return;
+
+  const modal = document.querySelector("#resolve-wizard-modal");
+  if (!modal) return;
+
+  let step = 0;
+  const totalSteps = 5;
+  const wizardData = {
+    knowledgeReused: null,
+    reusedCaseIds: "",
+    resolvedBy: getOwnerName(item) || _currentUser(),
+    rootCause: item.solutionTemplate?.rootCause || "",
+    actionSteps: item.solutionTemplate?.actionSteps || "",
+    prevention: item.solutionTemplate?.prevention || "",
+    solution: item.solution || document.querySelector("#inline-sol-text")?.value || "",
+    validatedBy: "",
+    reusableTags: item.solutionTemplate?.reusableTags || "",
+  };
+
+  function renderStep() {
+    const body = modal.querySelector("#rw-body");
+    const dots = modal.querySelector("#rw-step-dots");
+    const label = modal.querySelector("#rw-step-label");
+    const backBtn = modal.querySelector("#rw-back");
+    const nextBtn = modal.querySelector("#rw-next");
+    const title = modal.querySelector("#resolve-wizard-title");
+
+    dots.innerHTML = Array.from({ length: totalSteps }, (_, i) =>
+      `<span class="rw-dot${i === step ? " is-active" : ""}${i < step ? " is-done" : ""}"></span>`
+    ).join("");
+    label.textContent = `Step ${step + 1} of ${totalSteps}`;
+    backBtn.style.display = step === 0 ? "none" : "";
+    nextBtn.textContent = step === totalSteps - 1 ? "Resolve ✓" : "Next →";
+
+    if (step === 0) {
+      title.textContent = "Knowledge Reuse Check";
+      body.innerHTML = `
+        <div class="rw-step-content">
+          <p class="rw-step-desc">Was this challenge resolved by reusing knowledge from an existing case in the archive?</p>
+          <div class="rw-choice-group">
+            <button class="rw-choice-btn${wizardData.knowledgeReused === true ? " is-selected" : ""}" data-kr="yes">
+              <span class="rw-choice-icon">♻️</span>
+              <span class="rw-choice-label">Yes — Knowledge was reused</span>
+              <span class="rw-choice-sub">An existing solution helped resolve this case</span>
+            </button>
+            <button class="rw-choice-btn${wizardData.knowledgeReused === false ? " is-selected" : ""}" data-kr="no">
+              <span class="rw-choice-icon">🆕</span>
+              <span class="rw-choice-label">No — Fresh resolution</span>
+              <span class="rw-choice-sub">This was resolved without reusing past solutions</span>
+            </button>
+          </div>
+        </div>`;
+      body.querySelectorAll(".rw-choice-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          wizardData.knowledgeReused = btn.dataset.kr === "yes";
+          body.querySelectorAll(".rw-choice-btn").forEach(b => b.classList.remove("is-selected"));
+          btn.classList.add("is-selected");
+        });
+      });
+    } else if (step === 1) {
+      title.textContent = wizardData.knowledgeReused ? "Reused Case Reference" : "Resolved By";
+      if (wizardData.knowledgeReused) {
+        body.innerHTML = `
+          <div class="rw-step-content">
+            <p class="rw-step-desc">Which existing case(s) did you reuse knowledge from? Enter the case ID(s).</p>
+            <label class="rw-field-label">Reused Case ID(s)
+              <input class="rw-input" id="rw-reuse-ids" value="${escapeHtml(wizardData.reusedCaseIds)}" placeholder="e.g. HJD00012, HJD00045"/>
+            </label>
+            <p class="rw-hint">Separate multiple IDs with commas. This links the knowledge chain in analytics.</p>
+            <label class="rw-field-label" style="margin-top:12px">Resolved by
+              <input class="rw-input" id="rw-resolved-by" value="${escapeHtml(wizardData.resolvedBy)}" placeholder="Name of resolver"/>
+            </label>
+          </div>`;
+      } else {
+        body.innerHTML = `
+          <div class="rw-step-content">
+            <p class="rw-step-desc">Who resolved this challenge?</p>
+            <label class="rw-field-label">Resolved by
+              <input class="rw-input" id="rw-resolved-by" value="${escapeHtml(wizardData.resolvedBy)}" placeholder="Name of resolver"/>
+            </label>
+          </div>`;
+      }
+    } else if (step === 2) {
+      title.textContent = "Root Cause & Action Steps";
+      body.innerHTML = `
+        <div class="rw-step-content">
+          <p class="rw-step-desc">Document the root cause and the actions taken.</p>
+          <label class="rw-field-label">Root Cause Category
+            <select class="rw-select" id="rw-root-cause">
+              <option value="">-- Select --</option>
+              ${["Data","Process","System","People","External partner","Customer","Stock","Pricing","Logistics","Compliance"].map(rc =>
+                `<option value="${rc}"${wizardData.rootCause.toLowerCase() === rc.toLowerCase() ? " selected" : ""}>${rc}</option>`
+              ).join("")}
+            </select>
+          </label>
+          <label class="rw-field-label">Action Steps Taken
+            <textarea class="rw-textarea" id="rw-action-steps" rows="3" placeholder="Describe specific steps taken to resolve...">${escapeHtml(wizardData.actionSteps)}</textarea>
+          </label>
+          <label class="rw-field-label">Prevention / Standardisation
+            <textarea class="rw-textarea" id="rw-prevention" rows="2" placeholder="How to prevent recurrence...">${escapeHtml(wizardData.prevention)}</textarea>
+          </label>
+        </div>`;
+    } else if (step === 3) {
+      title.textContent = "Solution Documentation";
+      body.innerHTML = `
+        <div class="rw-step-content">
+          <p class="rw-step-desc">Write the full solution text. This becomes searchable in the archive for future reuse.</p>
+          <label class="rw-field-label">Solution
+            <textarea class="rw-textarea rw-textarea-lg" id="rw-solution" rows="5" placeholder="Full solution description (min 20 chars)...">${escapeHtml(wizardData.solution)}</textarea>
+          </label>
+          <label class="rw-field-label">Validated by (optional)
+            <input class="rw-input" id="rw-validated-by" value="${escapeHtml(wizardData.validatedBy)}" placeholder="Name or role who verified the solution"/>
+          </label>
+          <label class="rw-field-label">Reusable Tags
+            <input class="rw-input" id="rw-tags" value="${escapeHtml(wizardData.reusableTags)}" placeholder="e.g. pricing, EDI, promo, stock"/>
+          </label>
+        </div>`;
+    } else if (step === 4) {
+      title.textContent = "Review & Confirm";
+      const reuseLabel = wizardData.knowledgeReused
+        ? `<span class="rw-review-reuse-yes">♻️ Knowledge Reused</span> from <strong>${escapeHtml(wizardData.reusedCaseIds || "—")}</strong>`
+        : `<span class="rw-review-reuse-no">🆕 Fresh Resolution</span>`;
+      body.innerHTML = `
+        <div class="rw-step-content">
+          <p class="rw-step-desc">Review all details before resolving <strong>${escapeHtml(item.id)}</strong>.</p>
+          <div class="rw-review-grid">
+            <div class="rw-review-row"><span class="rw-review-label">Knowledge Reuse</span><span class="rw-review-value">${reuseLabel}</span></div>
+            <div class="rw-review-row"><span class="rw-review-label">Resolved By</span><span class="rw-review-value">${escapeHtml(wizardData.resolvedBy || "—")}</span></div>
+            <div class="rw-review-row"><span class="rw-review-label">Root Cause</span><span class="rw-review-value">${escapeHtml(wizardData.rootCause || "—")}</span></div>
+            <div class="rw-review-row"><span class="rw-review-label">Action Steps</span><span class="rw-review-value">${escapeHtml(wizardData.actionSteps || "—")}</span></div>
+            <div class="rw-review-row"><span class="rw-review-label">Prevention</span><span class="rw-review-value">${escapeHtml(wizardData.prevention || "—")}</span></div>
+            <div class="rw-review-row"><span class="rw-review-label">Solution</span><span class="rw-review-value rw-review-sol">${escapeHtml(wizardData.solution || "—")}</span></div>
+            <div class="rw-review-row"><span class="rw-review-label">Tags</span><span class="rw-review-value">${escapeHtml(wizardData.reusableTags || "—")}</span></div>
+          </div>
+        </div>`;
+    }
+  }
+
+  function saveStepData() {
+    if (step === 1) {
+      if (wizardData.knowledgeReused) {
+        const reuseInput = modal.querySelector("#rw-reuse-ids");
+        if (reuseInput) wizardData.reusedCaseIds = reuseInput.value.trim();
+      }
+      const resolvedByInput = modal.querySelector("#rw-resolved-by");
+      if (resolvedByInput) wizardData.resolvedBy = resolvedByInput.value.trim();
+    } else if (step === 2) {
+      const rc = modal.querySelector("#rw-root-cause");
+      const as = modal.querySelector("#rw-action-steps");
+      const pv = modal.querySelector("#rw-prevention");
+      if (rc) wizardData.rootCause = rc.value;
+      if (as) wizardData.actionSteps = as.value.trim();
+      if (pv) wizardData.prevention = pv.value.trim();
+    } else if (step === 3) {
+      const sol = modal.querySelector("#rw-solution");
+      const vb = modal.querySelector("#rw-validated-by");
+      const tg = modal.querySelector("#rw-tags");
+      if (sol) wizardData.solution = sol.value.trim();
+      if (vb) wizardData.validatedBy = vb.value.trim();
+      if (tg) wizardData.reusableTags = tg.value.trim();
+    }
+  }
+
+  function validateStep() {
+    if (step === 0 && wizardData.knowledgeReused === null) {
+      showToast("Please select whether knowledge was reused.");
+      return false;
+    }
+    if (step === 1 && !wizardData.resolvedBy) {
+      showToast("Please enter who resolved this challenge.");
+      return false;
+    }
+    if (step === 1 && wizardData.knowledgeReused && !wizardData.reusedCaseIds) {
+      showToast("Please enter the case ID(s) that were reused.");
+      return false;
+    }
+    if (step === 3 && wizardData.solution.length < 20) {
+      showToast("Solution must be at least 20 characters.");
+      return false;
+    }
+    return true;
+  }
+
+  function finalizeResolve() {
+    item.resolvedBy = wizardData.resolvedBy;
+    item.resolvedAt = todayISO();
+    item.status = "resolved";
+    item.solution = wizardData.solution;
+    item.meetingNeeded = wizardData.knowledgeReused ? false : item.meetingNeeded;
+
+    item.solutionTemplate = {
+      rootCause: wizardData.rootCause,
+      actionSteps: wizardData.actionSteps,
+      prevention: wizardData.prevention,
+      validatedBy: wizardData.validatedBy,
+      reusableTags: wizardData.reusableTags,
+    };
+
+    if (wizardData.knowledgeReused) {
+      item.details = item.details || {};
+      item.details.knowledgeReused = true;
+      const sourceId = wizardData.reusedCaseIds.split(",")[0].trim();
+      item.details.knowledgeReuseSource = sourceId;
+      item.details.knowledgeReuseTimestamp = new Date().toISOString();
+      if (!item.details.meetingGate) {
+        item.details.meetingGate = { matchedItemId: sourceId, similarity: 0.85, appliedAt: todayISO() };
+      }
+      item.meetingNeeded = false;
+      knowledgeReuseCount++;
+      localStorage.setItem("red-sync-v1-knowledge-reuse", String(knowledgeReuseCount));
+      meetingsAvoidedCount++;
+      localStorage.setItem("red-sync-v1-meetings-avoided", String(meetingsAvoidedCount));
+      item.updates.push({ type: "meeting_note", note: `Knowledge reuse applied from ${wizardData.reusedCaseIds}. Meeting skipped.` });
+    }
+
+    item.updates.push({ type: "solution_note", note: `Resolved by ${wizardData.resolvedBy}: ${truncate(wizardData.solution, 80)}` });
+    meetingLog.unshift(`${item.id}: Resolved by ${wizardData.resolvedBy} via resolve wizard.`);
+
+    addNotification({
+      type: "resolve",
+      itemId: item.id,
+      title: `Challenge resolved: ${item.title}`,
+      body: `Resolved by ${wizardData.resolvedBy}.${wizardData.knowledgeReused ? ` Knowledge reused from ${wizardData.reusedCaseIds}.` : ""}`,
+      department: item.department,
+    });
+
+    closeResolveWizard();
+    refreshAll();
+    openDetailDrawer(item.id);
+    showToast(`${item.id} resolved${wizardData.knowledgeReused ? " (knowledge reused)" : ""}`);
+  }
+
+  // Wire buttons
+  const backBtn = modal.querySelector("#rw-back");
+  const nextBtn = modal.querySelector("#rw-next");
+  const closeBtn = modal.querySelector("#close-resolve-wizard");
+
+  const backClone = backBtn.cloneNode(true);
+  backBtn.parentNode.replaceChild(backClone, backBtn);
+  const nextClone = nextBtn.cloneNode(true);
+  nextBtn.parentNode.replaceChild(nextClone, nextBtn);
+  const closeClone = closeBtn.cloneNode(true);
+  closeBtn.parentNode.replaceChild(closeClone, closeBtn);
+
+  backClone.addEventListener("click", () => {
+    if (step > 0) { saveStepData(); step--; renderStep(); }
+  });
+  nextClone.addEventListener("click", () => {
+    saveStepData();
+    if (!validateStep()) return;
+    if (step === totalSteps - 1) { finalizeResolve(); }
+    else { step++; renderStep(); }
+  });
+  closeClone.addEventListener("click", closeResolveWizard);
+  modal.addEventListener("click", (e) => { if (e.target === modal) closeResolveWizard(); }, { once: true });
+
+  renderStep();
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeResolveWizard() {
+  const modal = document.querySelector("#resolve-wizard-modal");
+  if (modal) {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
+
 function init() {
   meetingWeekView = "current";
   activeMeetingWeek = upcomingMeetingMondayISO();
@@ -6478,7 +8859,8 @@ function init() {
   initDropdowns();
   updateTypeFields();
   seedAssistantThread();
-  switchTab("dashboard");
+  document.body.classList.toggle("sales-rep-view", activeRoleView === "sales_rep");
+  switchTab(isSupervisorView() ? "analytics" : "dashboard");
   refreshAll();
 }
 
