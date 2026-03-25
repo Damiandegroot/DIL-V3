@@ -3737,10 +3737,28 @@ function similarityScore(queryTokens, itemTokens) {
   return overlap / Math.sqrt(querySet.size * itemSet.size);
 }
 
-function inferChallengeIntent(query) {
-  return /challenge|challnge|chalenge|issue|problem|probleem|problm|recurr|escalat|block|bottleneck|uitdaging|escalatie|blokkade|vertraging|pricing|price|stock|delivery|service|oos|stockout|dc|depot/i.test(
-    query
+function inferChallengeIntent(query, matches = []) {
+  const value = String(query || "").trim();
+  if (!value) return false;
+
+  const explicitSignal = /challenge|challange|challnge|chalenge|issue|problem|probleem|problm|recurr|escalat|block|bottleneck|uitdaging|escalatie|blokkade|vertraging|pricing|price|stock|delivery|service|oos|stockout|dc|depot/i.test(
+    value
   );
+  if (explicitSignal) return true;
+
+  const normalized = normalizeSearchText(value);
+  const helpSignal = /\b(help|advice|advise|info|information|support|guidance|similar|before|insight|tips|any info)\b/i.test(
+    value
+  );
+  const questionSignal = /\?$/.test(value) || /\b(how|what|why|which|where|when|can|do you have)\b/i.test(value);
+  const operationalSignal = /\b(missing|image|images|portal|retailer|invoice|edi|shipment|delay|delayed|returns|warehouse|forecast|promotion|promo|availability|sla|complaint|allocation|label|sku|distribution|integration)\b/i.test(
+    normalized
+  );
+
+  if (operationalSignal && (helpSignal || questionSignal)) return true;
+
+  const topSimilarity = Array.isArray(matches) && matches.length ? Number(matches[0].similarity) || 0 : 0;
+  return topSimilarity >= 0.30;
 }
 
 function isLikelyDutchText(text) {
@@ -4217,32 +4235,34 @@ function buildAssistantCaseLinks(matches, limit = 3) {
         : "No documented solution yet.",
     status: item.status,
     type: item.type,
+    department: item.department,
+    match: Math.max(1, Math.round(Math.min(item.similarity || 0, 0.99) * 100)),
   }));
 }
 
-function isActionableAssistantAnswer(text, query) {
+function isActionableAssistantAnswer(text, challengeIntent) {
   const value = String(text || "");
   if (!value) return false;
-  if (!inferChallengeIntent(query || "")) return value.length > 0;
+  if (!challengeIntent) return value.length > 0;
   const lowered = value.toLowerCase();
-  const hasActionsSection =
-    lowered.includes("recommended actions") || lowered.includes("aanbevolen acties");
-  const hasParallelsSection =
-    lowered.includes("historical") || lowered.includes("historische") || lowered.includes("relevant");
+  const hasQuickAssessmentSection = lowered.includes("quick assessment:");
+  const hasHistoricalCasesSection = lowered.includes("relevant historical cases:");
+  const hasWorkedBeforeSection = lowered.includes("what worked before:");
+  const hasActionsSection = lowered.includes("recommended actions");
+  const hasEscalateSection = lowered.includes("escalate when:");
   const hasNumberedSteps = /\n1\.\s.+/m.test(value) && /\n2\.\s.+/m.test(value);
   const genericNoise = /libraries organize|in various industries|across industries|general best practice/i.test(
     value
   );
-  return hasActionsSection && hasParallelsSection && hasNumberedSteps && !genericNoise;
+  return hasQuickAssessmentSection && hasHistoricalCasesSection && hasWorkedBeforeSection && hasActionsSection && hasEscalateSection && hasNumberedSteps && !genericNoise;
 }
 
-async function askLLMForAssistantAnswer(query, matches) {
+async function askLLMForAssistantAnswer(query, matches, challengeIntent) {
   if (!ASSISTANT_LLM_CONFIG.enabled) return null;
 
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), ASSISTANT_LLM_CONFIG.timeoutMs);
   const roleLabel = assistantRoleLabel();
-  const challengeIntent = inferChallengeIntent(query || "");
 
   const systemPrompt = [
     "You are the RED in-SYNCC Smart Assistant.",
@@ -4351,14 +4371,14 @@ async function askLLMForAssistantAnswer(query, matches) {
 }
 
 async function buildAssistantAdvice(query) {
-  const challengeIntent = inferChallengeIntent(query || "");
   const archivePool = getArchiveFilteredItems({ useQuery: false });
   const matches = findSimilarCases(query, ASSISTANT_LLM_CONFIG.contextCaseLimit, archivePool);
+  const challengeIntent = inferChallengeIntent(query || "", matches);
   const fallback = buildAssistantFallbackAdvice(matches.slice(0, ASSISTANT_LLM_CONFIG.uiMatchLimit));
   const caseLinks = buildAssistantCaseLinks(matches, 3);
 
-  const llmAnswer = await askLLMForAssistantAnswer(query, matches);
-  const useLlmAnswer = isActionableAssistantAnswer(llmAnswer, query);
+  const llmAnswer = await askLLMForAssistantAnswer(query, matches, challengeIntent);
+  const useLlmAnswer = isActionableAssistantAnswer(llmAnswer, challengeIntent);
   if (!llmAnswer && !assistantLlmUnavailableNotified) {
     assistantLlmUnavailableNotified = true;
     showToast("LLM API not available. Using built-in assistant logic.");
@@ -4425,7 +4445,7 @@ function seedAssistantThread() {
   if (assistantThread.length) return;
   assistantThread.push({
     role: "assistant",
-    text: "Hey! I am your smart archive assistant. Tell me your challenge and I will find similar cases and practical next steps.",
+    text: "Hey! I am your smart archive assistant. Share your challenge and I will return a short summary, practical advice based on similar cases, and direct case links.",
     matches: [],
   });
 }
